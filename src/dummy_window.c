@@ -27,6 +27,13 @@ void imv_window_clear(struct imv_window *window, unsigned char r,
   (void)b;
 }
 
+void imv_window_get_size(struct imv_window *window, int *w, int *h)
+{
+  (void)window;
+  (void)w;
+  (void)h;
+}
+
 void imv_window_get_framebuffer_size(struct imv_window *window, int *w, int *h)
 {
   (void)window;

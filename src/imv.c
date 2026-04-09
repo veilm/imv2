@@ -505,13 +505,15 @@ static void event_handler(void *data, const struct imv_event *e)
       break;
     case IMV_EVENT_RESIZE:
       {
-        const int w = e->data.resize.buffer_width;
-        const int h = e->data.resize.buffer_height;
+        const int ww = e->data.resize.width;
+        const int wh = e->data.resize.height;
+        const int bw = e->data.resize.buffer_width;
+        const int bh = e->data.resize.buffer_height;
         const double ui_scale = e->data.resize.scale;
-        imv_viewport_update(imv->view, w, h, imv->current_image, imv->scaling_mode);
-        imv_canvas_resize(imv->canvas, w, h);
+        imv_viewport_update(imv->view, bw, bh, imv->current_image, imv->scaling_mode);
+        imv_canvas_resize(imv->canvas, bw, bh);
         imv_canvas_font(imv->canvas, imv->overlay.font.name, imv->overlay.font.size * ui_scale);
-        imv_thumbs_resize(imv->thumbs, w, h);
+        imv_thumbs_resize(imv->thumbs, ww, wh, ui_scale);
         sync_thumbs(imv);
         imv->need_redraw = true;
         break;
@@ -1382,11 +1384,13 @@ static bool setup_window(struct imv *imv)
   imv_window_set_fullscreen(imv->window, imv->start_fullscreen);
 
   {
-    int bw, bh;
+    int ww, wh, bw, bh;
+    const double ui_scale = imv_window_get_scale(imv->window);
+    imv_window_get_size(imv->window, &ww, &wh);
     imv_window_get_framebuffer_size(imv->window, &bw, &bh);
     imv->canvas = imv_canvas_create(bw, bh);
     imv_canvas_font(imv->canvas, imv->overlay.font.name, imv->overlay.font.size);
-    imv_thumbs_resize(imv->thumbs, bw, bh);
+    imv_thumbs_resize(imv->thumbs, ww, wh, ui_scale);
   }
 
   return true;

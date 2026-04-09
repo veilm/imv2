@@ -63,6 +63,9 @@ void imv_window_free(struct imv_window *window);
 void imv_window_clear(struct imv_window *window, unsigned char r,
     unsigned char g, unsigned char b);
 
+/* Get the logical dimensions of the window */
+void imv_window_get_size(struct imv_window *window, int *w, int *h);
+
 /* Get the pixel dimensions that the window is rendered at */
 void imv_window_get_framebuffer_size(struct imv_window *window, int *w, int *h);
 

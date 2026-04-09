@@ -19,7 +19,7 @@ struct imv_thumbs *imv_thumbs_create(struct backends *backends,
     imv_thumbs_ready_cb ready_cb, void *ready_cb_data);
 void imv_thumbs_free(struct imv_thumbs *thumbs);
 
-void imv_thumbs_resize(struct imv_thumbs *thumbs, int width, int height);
+void imv_thumbs_resize(struct imv_thumbs *thumbs, int width, int height, double scale);
 void imv_thumbs_resync(struct imv_thumbs *thumbs, struct imv_navigator *nav);
 void imv_thumbs_set_index(struct imv_thumbs *thumbs, size_t index, size_t count);
 

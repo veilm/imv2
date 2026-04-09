@@ -38,6 +38,7 @@ struct imv_thumbs {
 
   int window_width;
   int window_height;
+  double scale;
   int x;
   int y;
   int cols;
@@ -204,10 +205,11 @@ void imv_thumbs_free(struct imv_thumbs *thumbs)
   free(thumbs);
 }
 
-void imv_thumbs_resize(struct imv_thumbs *thumbs, int width, int height)
+void imv_thumbs_resize(struct imv_thumbs *thumbs, int width, int height, double scale)
 {
   thumbs->window_width = width;
   thumbs->window_height = height;
+  thumbs->scale = scale > 0.0 ? scale : 1.0;
   update_metrics(thumbs);
   thumbs->dirty = true;
 }
@@ -379,6 +381,11 @@ int imv_thumbs_zoom(struct imv_thumbs *thumbs, int delta)
 
 int imv_thumbs_translate(const struct imv_thumbs *thumbs, int x, int y)
 {
+  if (thumbs->scale > 0.0) {
+    x = (int)(x / thumbs->scale);
+    y = (int)(y / thumbs->scale);
+  }
+
   const int x_max = thumbs->x + thumbs->cell_size * thumbs->cols;
   const int y_max = thumbs->y + thumbs->cell_size * thumbs->rows;
   if (x < thumbs->x || y < thumbs->y || x > x_max || y > y_max) {
@@ -517,18 +524,21 @@ void imv_thumbs_render(struct imv_thumbs *thumbs, struct imv_canvas *canvas,
       const int draw_y = y + (thumbs->thumb_size - item->height) / 2;
       item->x = draw_x;
       item->y = draw_y;
-      imv_canvas_draw_image(canvas, item->image, draw_x, draw_y, 1.0, 0.0,
-          false, upscaling_method);
+      imv_canvas_draw_image(canvas, item->image,
+          (int)(draw_x * thumbs->scale + 0.5),
+          (int)(draw_y * thumbs->scale + 0.5),
+          thumbs->scale, 0.0, false,
+          upscaling_method);
     }
 
     if (i == selected) {
       imv_canvas_color(canvas, 0.90f, 0.90f, 0.90f, 1.0f);
       imv_canvas_stroke_rectangle(canvas,
-          x - thumbs->border_width,
-          y - thumbs->border_width,
-          thumbs->thumb_size + 2 * thumbs->border_width,
-          thumbs->thumb_size + 2 * thumbs->border_width,
-          thumbs->border_width);
+          (int)((item->x - thumbs->border_width) * thumbs->scale + 0.5),
+          (int)((item->y - thumbs->border_width) * thumbs->scale + 0.5),
+          (int)((item->width + 2 * thumbs->border_width) * thumbs->scale + 0.5),
+          (int)((item->height + 2 * thumbs->border_width) * thumbs->scale + 0.5),
+          thumbs->border_width * thumbs->scale);
     }
 
     if ((i + 1 - thumbs->first) % (size_t)thumbs->cols == 0) {
