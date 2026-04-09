@@ -39,6 +39,10 @@ int imv_image_width(const struct imv_image *image);
 /* Get the image height */
 int imv_image_height(const struct imv_image *image);
 
+/* Create a scaled thumbnail copy that fits within the given bounds */
+struct imv_image *imv_image_thumbnail(const struct imv_image *image,
+    int max_width, int max_height);
+
 #endif
 
 

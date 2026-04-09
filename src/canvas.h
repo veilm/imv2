@@ -32,6 +32,10 @@ void imv_canvas_color(struct imv_canvas *canvas, float r, float g, float b, floa
 /* Fill a rectangle on the canvas with the current color */
 void imv_canvas_fill_rectangle(struct imv_canvas *canvas, int x, int y, int width, int height);
 
+/* Stroke a rectangle on the canvas with the current color */
+void imv_canvas_stroke_rectangle(struct imv_canvas *canvas, int x, int y,
+                                 int width, int height, double line_width);
+
 /* Fill the whole canvas with the current color */
 void imv_canvas_fill(struct imv_canvas *canvas);
 

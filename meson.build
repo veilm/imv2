@@ -84,6 +84,7 @@ files_common = files(
   'src/log.c',
   'src/navigator.c',
   'src/source.c',
+  'src/thumbs.c',
   'src/viewport.c',
 )
 
