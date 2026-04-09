@@ -72,7 +72,8 @@ static const int thumb_sizes[] = {
 static void draw_mark_overlay(struct imv_canvas *canvas, const struct thumb_item *item,
     double scale, int border_width)
 {
-  const double line_width = scale * (border_width > 1 ? border_width : 2);
+  const double outer_width = scale * (border_width + 2);
+  const double inner_width = scale * (border_width > 1 ? border_width : 2);
   const int inset = border_width;
   const int x = (int)(item->x * scale + 0.5);
   const int y = (int)(item->y * scale + 0.5);
@@ -83,11 +84,18 @@ static void draw_mark_overlay(struct imv_canvas *canvas, const struct thumb_item
   const int x2 = (int)((item->x + item->width - inset - 1) * scale + 0.5);
   const int y2 = (int)((item->y + item->height - inset - 1) * scale + 0.5);
 
-  imv_canvas_color(canvas, 0.95f, 0.95f, 0.95f, 0.95f);
-  imv_canvas_stroke_rectangle(canvas, x, y, width, height, line_width);
+  imv_canvas_color(canvas, 0.0f, 0.0f, 0.0f, 0.95f);
+  imv_canvas_stroke_rectangle(canvas, x, y, width, height, outer_width);
   if (x2 >= x1 && y2 >= y1) {
-    imv_canvas_stroke_line(canvas, x1, y1, x2, y2, line_width);
-    imv_canvas_stroke_line(canvas, x1, y2, x2, y1, line_width);
+    imv_canvas_stroke_line(canvas, x1, y1, x2, y2, outer_width);
+    imv_canvas_stroke_line(canvas, x1, y2, x2, y1, outer_width);
+  }
+
+  imv_canvas_color(canvas, 0.95f, 0.95f, 0.95f, 0.95f);
+  imv_canvas_stroke_rectangle(canvas, x, y, width, height, inner_width);
+  if (x2 >= x1 && y2 >= y1) {
+    imv_canvas_stroke_line(canvas, x1, y1, x2, y2, inner_width);
+    imv_canvas_stroke_line(canvas, x1, y2, x2, y1, inner_width);
   }
 }
 

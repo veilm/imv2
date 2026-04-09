@@ -21,6 +21,9 @@ int imv_navigator_add(struct imv_navigator *nav, const char *path,
  * guaranteed to be valid until the next call to an imv_navigator method. */
 const char *imv_navigator_selection(struct imv_navigator *nav);
 
+/* Returns a read-only reference to the current display path. */
+const char *imv_navigator_display_selection(struct imv_navigator *nav);
+
 /* Returns the index of the currently selected path */
 size_t imv_navigator_index(struct imv_navigator *nav);
 
@@ -71,6 +74,9 @@ size_t imv_navigator_length(struct imv_navigator *nav);
 
 /* Return a path for a given index */
 char *imv_navigator_at(struct imv_navigator *nav, size_t index);
+
+/* Return the display path for a given index */
+char *imv_navigator_display_at(struct imv_navigator *nav, size_t index);
 
 
 #endif

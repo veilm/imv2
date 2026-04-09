@@ -308,7 +308,8 @@ customising the window's title, or the overlay text.
 	The pid of this instance of imv. Useful for running imv-msg in scripts.
 
 *$imv_current_file*::
-	Path of currently selected image.
+	Path of currently selected image, using the original input spelling when
+	possible.
 
 *$imv_scaling_mode*::
 	Name of the current scaling mode.

@@ -20,6 +20,7 @@
 
 struct nav_item {
   char *path;
+  char *display_path;
   int marked;
 };
 
@@ -48,6 +49,7 @@ void imv_navigator_free(struct imv_navigator *nav)
   for (size_t i = 0; i < nav->paths->len; ++i) {
     struct nav_item *nav_item = nav->paths->items[i];
     free(nav_item->path);
+    free(nav_item->display_path);
   }
   list_deep_free(nav->paths);
   free(nav);
@@ -60,6 +62,13 @@ static int add_item(struct imv_navigator *nav, const char *path)
   nav_item->path = realpath(path, NULL);
   if (!nav_item->path) {
     nav_item->path = strdup(path);
+  }
+  nav_item->display_path = strdup(path);
+  if (!nav_item->path || !nav_item->display_path) {
+    free(nav_item->path);
+    free(nav_item->display_path);
+    free(nav_item);
+    return 1;
   }
 
   list_append(nav->paths, nav_item);
@@ -125,6 +134,12 @@ int imv_navigator_add(struct imv_navigator *nav, const char *path,
 const char *imv_navigator_selection(struct imv_navigator *nav)
 {
   const char *path = imv_navigator_at(nav, nav->cur_path);
+  return path ? path : "";
+}
+
+const char *imv_navigator_display_selection(struct imv_navigator *nav)
+{
+  const char *path = imv_navigator_display_at(nav, nav->cur_path);
   return path ? path : "";
 }
 
@@ -252,6 +267,7 @@ void imv_navigator_remove(struct imv_navigator *nav, const char *path)
     struct nav_item *item = nav->paths->items[i];
     if (!strcmp(item->path, path)) {
       free(item->path);
+      free(item->display_path);
       free(item);
       list_remove(nav->paths, i);
       removed = i;
@@ -291,6 +307,7 @@ void imv_navigator_remove_at(struct imv_navigator *nav, size_t index)
   }
   struct nav_item *item = nav->paths->items[index];
   free(item->path);
+  free(item->display_path);
   free(item);
   list_remove(nav->paths, index);
 
@@ -319,6 +336,7 @@ void imv_navigator_remove_all(struct imv_navigator *nav)
   for (size_t i = 0; i < nav->paths->len; ++i) {
     struct nav_item *item = nav->paths->items[i];
     free(item->path);
+    free(item->display_path);
     free(item);
   }
   list_clear(nav->paths);
@@ -398,6 +416,15 @@ char *imv_navigator_at(struct imv_navigator *nav, size_t index)
   if (index < nav->paths->len) {
     struct nav_item *item = nav->paths->items[index];
     return item->path;
+  }
+  return NULL;
+}
+
+char *imv_navigator_display_at(struct imv_navigator *nav, size_t index)
+{
+  if (index < nav->paths->len) {
+    struct nav_item *item = nav->paths->items[index];
+    return item->display_path;
   }
   return NULL;
 }
