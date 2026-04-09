@@ -28,6 +28,7 @@
 #include "navigator.h"
 #include "source.h"
 #include "sys/types.h"
+#include "thumbs.h"
 #include "viewport.h"
 #include "window.h"
 
@@ -49,10 +50,16 @@ enum background_type {
   BACKGROUND_TYPE_COUNT
 };
 
+enum imv_mode {
+  IMV_MODE_IMAGE,
+  IMV_MODE_THUMB,
+};
+
 enum internal_event_type {
   NEW_IMAGE,
   BAD_IMAGE,
   NEW_PATH,
+  THUMB_LOADED,
   COMMAND
 };
 
@@ -71,6 +78,11 @@ struct internal_event {
     struct {
       char *path;
     } new_path;
+    struct {
+      size_t index;
+      unsigned generation;
+      struct imv_image *image;
+    } thumb_loaded;
     struct {
       char *text;
     } command;
@@ -119,6 +131,8 @@ struct imv {
   /* dirty state flags */
   bool need_redraw;
   bool need_rescale;
+  bool cache_invalidated;
+  bool force_image_load;
 
   /* traverse sub-directories for more images */
   bool recursive_load;
@@ -140,6 +154,7 @@ struct imv {
 
   /* scale up / down images to match window, or actual size */
   enum scaling_mode scaling_mode;
+  enum imv_mode mode;
 
   /* initial pan factor when opening new images */
   bool custom_start_pan;
@@ -199,6 +214,7 @@ struct imv {
   struct imv_viewport *view;
   struct imv_canvas *canvas;
   struct imv_window *window;
+  struct imv_thumbs *thumbs;
 
   /* if reading an image from stdin, this is the buffer for it */
   void *stdin_image_data;
@@ -222,6 +238,7 @@ static void command_center(struct list *args, const char *argstr, void *data);
 static void command_reset(struct list *args, const char *argstr, void *data);
 static void command_next_frame(struct list *args, const char *argstr, void *data);
 static void command_toggle_playing(struct list *args, const char *argstr, void *data);
+static void command_thumbnail(struct list *args, const char *argstr, void *data);
 static void command_set_scaling_mode(struct list *args, const char *argstr, void *data);
 static void command_set_upscaling_method(struct list *args, const char *argstr, void *data);
 static void command_set_slideshow_duration(struct list *args, const char *argstr, void *data);
@@ -234,6 +251,9 @@ static void render_window(struct imv *imv);
 static void update_env_vars(struct imv *imv);
 static size_t generate_env_text(struct imv *imv, char *buf, size_t len, const char *format);
 static size_t read_from_stdin(void **buffer);
+static void sync_thumbs(struct imv *imv);
+static void thumb_ready_callback(size_t index, unsigned generation,
+    struct imv_image *image, void *data);
 
 /* Finds the next split between commands in a string (';'). Provides a pointer
  * to the next character after the delimiter as out, or a pointer to '\0' if
@@ -408,6 +428,37 @@ static void command_callback(const char *text, void *data)
   imv_window_push_event(imv->window, &e);
 }
 
+static void thumb_ready_callback(size_t index, unsigned generation,
+    struct imv_image *image, void *data)
+{
+  struct imv *imv = data;
+
+  struct internal_event *event = calloc(1, sizeof *event);
+  event->type = THUMB_LOADED;
+  event->data.thumb_loaded.index = index;
+  event->data.thumb_loaded.generation = generation;
+  event->data.thumb_loaded.image = image;
+
+  struct imv_event e = {
+    .type = IMV_EVENT_CUSTOM,
+    .data = {
+      .custom = event
+    }
+  };
+  imv_window_push_event(imv->window, &e);
+}
+
+static void sync_thumbs(struct imv *imv)
+{
+  if (!imv->thumbs) {
+    return;
+  }
+  imv_thumbs_resync(imv->thumbs, imv->navigator);
+  imv_thumbs_set_index(imv->thumbs, imv_navigator_index(imv->navigator),
+      imv_navigator_length(imv->navigator));
+  imv_thumbs_schedule(imv->thumbs, imv->navigator);
+}
+
 static void key_handler(struct imv *imv, const struct imv_event *event)
 {
   if (imv_console_is_active(imv->console)) {
@@ -550,7 +601,9 @@ struct imv *imv_create(void)
   imv->initial_height = 720;
   imv->need_redraw = true;
   imv->need_rescale = true;
+  imv->force_image_load = true;
   imv->scaling_mode = SCALING_FULL;
+  imv->mode = IMV_MODE_IMAGE;
   imv->loop_input = true;
   imv->overlay.font.name = strdup("Monospace");
   imv->overlay.font.size = 24;
@@ -561,6 +614,7 @@ struct imv *imv_create(void)
   }
   imv->binds = imv_binds_create();
   imv->navigator = imv_navigator_create();
+  imv->thumbs = imv_thumbs_create(imv->backends, thumb_ready_callback, imv);
   imv->commands = imv_commands_create();
   imv->console = imv_console_create();
   imv_console_set_command_callback(imv->console, &command_callback, imv);
@@ -604,6 +658,7 @@ struct imv *imv_create(void)
   imv_command_register(imv->commands, "reset", &command_reset);
   imv_command_register(imv->commands, "next_frame", &command_next_frame);
   imv_command_register(imv->commands, "toggle_playing", &command_toggle_playing);
+  imv_command_register(imv->commands, "thumbnail", &command_thumbnail);
   imv_command_register(imv->commands, "scaling", &command_set_scaling_mode);
   imv_command_register(imv->commands, "upscaling", &command_set_upscaling_method);
   imv_command_register(imv->commands, "slideshow", &command_set_slideshow_duration);
@@ -618,6 +673,7 @@ struct imv *imv_create(void)
   imv_command_alias(imv->commands, "o", "open");
   imv_command_alias(imv->commands, "bg", "background");
   imv_command_alias(imv->commands, "ss", "slideshow");
+  imv_command_alias(imv->commands, "thumb", "thumbnail");
 
   /* aliases to improve backwards compatibility with <v4 */
   imv_command_alias(imv->commands, "select_rel", "next");
@@ -652,6 +708,7 @@ struct imv *imv_create(void)
   add_bind(imv, "r", "reset");
   add_bind(imv, "<period>", "next_frame");
   add_bind(imv, "<space>", "toggle_playing");
+  add_bind(imv, "<Return>", "thumbnail");
   add_bind(imv, "t", "slideshow +1");
   add_bind(imv, "<Shift+T>", "slideshow -1");
 
@@ -669,6 +726,7 @@ void imv_free(struct imv *imv)
   if (imv->current_source) {
     imv_source_free(imv->current_source);
   }
+  imv_thumbs_free(imv->thumbs);
   imv_commands_free(imv->commands);
   imv_console_free(imv->console);
   imv_ipc_free(imv->ipc);
@@ -1359,12 +1417,20 @@ static void consume_internal_event(struct imv *imv, struct internal_event *event
     }
 
     imv_navigator_remove(imv->navigator, err_path);
+    sync_thumbs(imv);
 
   } else if (event->type == NEW_PATH) {
     /* Received a new path from the stdin reading thread */
     imv_add_path(imv, event->data.new_path.path);
     free(event->data.new_path.path);
+    sync_thumbs(imv);
     /* Need to update image count in title */
+    imv->need_redraw = true;
+
+  } else if (event->type == THUMB_LOADED) {
+    imv_thumbs_handle_loaded(imv->thumbs, event->data.thumb_loaded.index,
+        event->data.thumb_loaded.generation, event->data.thumb_loaded.image);
+    imv_thumbs_schedule(imv->thumbs, imv->navigator);
     imv->need_redraw = true;
 
   } else if (event->type == COMMAND) {
@@ -1720,6 +1786,17 @@ static void command_pan(struct list *args, const char *argstr, void *data)
   long int x = strtol(args->items[1], NULL, 10);
   long int y = strtol(args->items[2], NULL, 10);
 
+  if (imv->mode == IMV_MODE_THUMB) {
+    size_t index = imv_navigator_index(imv->navigator);
+    const int dx = (x > 0) - (x < 0);
+    const int dy = (y > 0) - (y < 0);
+    if (imv_thumbs_move(imv->thumbs, &index, imv_navigator_length(imv->navigator),
+        dx, dy, 1)) {
+      imv_navigator_select_abs(imv->navigator, index);
+    }
+    return;
+  }
+
   imv_viewport_move(imv->view, x, y, imv->current_image);
 }
 
@@ -1731,6 +1808,16 @@ static void command_next(struct list *args, const char *argstr, void *data)
 
   if (args->len >= 2) {
     index = strtol(args->items[1], NULL, 10);
+  }
+
+  if (imv->mode == IMV_MODE_THUMB) {
+    size_t selected = imv_navigator_index(imv->navigator);
+    if (imv_thumbs_move(imv->thumbs, &selected, imv_navigator_length(imv->navigator),
+        1, 0, index)) {
+      imv_navigator_select_abs(imv->navigator, selected);
+    }
+    imv->slideshow.elapsed = 0;
+    return;
   }
 
   imv_navigator_select_rel(imv->navigator, index);
@@ -1749,6 +1836,16 @@ static void command_prev(struct list *args, const char *argstr, void *data)
     index = strtol(args->items[1], NULL, 10);
   }
 
+  if (imv->mode == IMV_MODE_THUMB) {
+    size_t selected = imv_navigator_index(imv->navigator);
+    if (imv_thumbs_move(imv->thumbs, &selected, imv_navigator_length(imv->navigator),
+        -1, 0, index)) {
+      imv_navigator_select_abs(imv->navigator, selected);
+    }
+    imv->slideshow.elapsed = 0;
+    return;
+  }
+
   imv_navigator_select_rel(imv->navigator, -index);
   imv_viewport_reset_transform(imv->view);
 
@@ -1765,7 +1862,12 @@ static void command_goto(struct list *args, const char *argstr, void *data)
 
   long int index = strtol(args->items[1], NULL, 10);
   imv_navigator_select_abs(imv->navigator, index > 0 ? index - 1 : index);
-  imv_viewport_reset_transform(imv->view);
+  if (imv->mode == IMV_MODE_IMAGE) {
+    imv_viewport_reset_transform(imv->view);
+  }
+  if (imv->mode == IMV_MODE_THUMB) {
+    sync_thumbs(imv);
+  }
 
   imv->slideshow.elapsed = 0;
 }
@@ -1775,6 +1877,15 @@ static void command_zoom(struct list *args, const char *argstr, void *data)
   (void)argstr;
   struct imv *imv = data;
   if (args->len == 2) {
+    if (imv->mode == IMV_MODE_THUMB) {
+      const char *str = args->items[1];
+      if (strcmp(str, "actual")) {
+        const long int amount = strtol(args->items[1], NULL, 10);
+        imv_thumbs_zoom(imv->thumbs, amount);
+        sync_thumbs(imv);
+      }
+      return;
+    }
     const char *str = args->items[1];
     if (!strcmp(str, "actual")) {
       imv_viewport_scale_to_actual(imv->view, imv->current_image);
@@ -1841,6 +1952,7 @@ static void command_open(struct list *args, const char *argstr, void *data)
     }
     wordfree(&word);
   }
+  sync_thumbs(imv);
 }
 
 static void command_close(struct list *args, const char *argstr, void *data)
@@ -1854,6 +1966,7 @@ static void command_close(struct list *args, const char *argstr, void *data)
     const char *arg = args->items[1];
     if (!strcmp("all", arg)) {
       imv_navigator_remove_all(imv->navigator);
+      sync_thumbs(imv);
       imv->slideshow.elapsed = 0;
       return;
     }
@@ -1862,6 +1975,7 @@ static void command_close(struct list *args, const char *argstr, void *data)
   }
 
   imv_navigator_remove_at(imv->navigator, index);
+  sync_thumbs(imv);
 
   imv->slideshow.elapsed = 0;
 }
@@ -1897,6 +2011,9 @@ static void command_center(struct list *args, const char *argstr, void *data)
   (void)args;
   (void)argstr;
   struct imv *imv = data;
+  if (imv->mode == IMV_MODE_THUMB) {
+    return;
+  }
   imv_viewport_center(imv->view, imv->current_image);
 }
 
@@ -1905,6 +2022,9 @@ static void command_reset(struct list *args, const char *argstr, void *data)
   (void)args;
   (void)argstr;
   struct imv *imv = data;
+  if (imv->mode == IMV_MODE_THUMB) {
+    return;
+  }
   imv_viewport_reset_transform(imv->view);
   imv->need_rescale = true;
   imv->need_redraw = true;
@@ -1927,6 +2047,24 @@ static void command_toggle_playing(struct list *args, const char *argstr, void *
   (void)argstr;
   struct imv *imv = data;
   imv_viewport_toggle_playing(imv->view);
+}
+
+static void command_thumbnail(struct list *args, const char *argstr, void *data)
+{
+  (void)args;
+  (void)argstr;
+  struct imv *imv = data;
+
+  if (imv->mode == IMV_MODE_IMAGE) {
+    imv->mode = IMV_MODE_THUMB;
+    sync_thumbs(imv);
+  } else {
+    imv->mode = IMV_MODE_IMAGE;
+    imv->force_image_load = true;
+    imv_viewport_reset_transform(imv->view);
+    imv->need_rescale = true;
+  }
+  imv->need_redraw = true;
 }
 
 static void command_set_scaling_mode(struct list *args, const char *argstr, void *data)
