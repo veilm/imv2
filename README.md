@@ -1,3 +1,19 @@
+Summary of veilm fork changes:
+
+- Adds a thumbnail grid mode, toggled with `Enter` by default
+	- asynchronous thumbnail loading and caching
+	- thumbnail navigation integrated with the normal image list and commands
+
+to build the Wayland binary and install it to `/usr/local/bin/imv`:
+```
+git clone https://github.com/veilm/imv2
+./imv2/install.sh
+```
+
+Original README:
+
+---
+
 [![builds.sr.ht status](https://builds.sr.ht/~exec64/imv.svg)](https://builds.sr.ht/~exec64/imv?)
 imv - X11/Wayland Image Viewer
 ==============================
