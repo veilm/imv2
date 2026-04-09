@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=imv-dir
+Name[en_US]=imv-dir
+GenericName=Image viewer
+GenericName[en_US]=Image viewer
+Comment=Fast Image Viewer | Open all images in a directory
+Exec=imv-dir %F
+NoDisplay=true
+Terminal=false
+Type=Application
+Categories=Graphics;2DGraphics;Viewer;
+MimeType=@supported_mime_types@
+Icon=multimedia-photo-viewer
+Keywords=photo;picture;

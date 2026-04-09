@@ -1,0 +1,6 @@
+imv
+*.o
+test_*
+build/
+subprojects/*
+!subprojects/*.wrap

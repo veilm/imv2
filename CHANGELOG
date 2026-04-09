@@ -1,0 +1,296 @@
+imv Changelog
+=============
+
+UNRELEASED
+----------
+
+* Add support for CMYK jpeg files via optional LittleCMS dependency
+* Add support for animated WebP files
+* Fix libtiff backend on big endian hosts
+* Add new '-V' flag to enable verbose logs
+* Fix crash when default cursor shape couldn't be determined
+* Add new '-C' that allows running a command each time a new image is displayed
+* Request server-side decorations on Wayland
+
+v5.0.1 - 2025-11-27
+-------------------
+
+* In multi-windows installation the imv script now contains absolute paths to
+  the executables allowing multiple installations on a single machine to coexist
+
+v5.0.0 - 2025-11-09
+-------------------
+
+BREAKING CHANGES:
+* FreeImage support is dropped as the library is unmaintained and contains unpatched vulnerabilities
+* libnsgif now requires version 1.0.0
+* The 'open' command no longer splits arguments by space before shell expansion
+* The 'zoom' command now checks the passed argument for a '%' suffix and scales
+  the image linearly if it is present; no other suffixes are allowed
+
+* Fix linking errors with icu > 75
+* Fix displaying HEIF images with odd width
+* Fix displaying images with dimensions larger than maximum OpenGL texture size
+* Use linear mipmaps to downscale images when OpenGL 3 is available
+* Fix scaling of SVG images on HiDPI monitors
+* Try to display broken JPEG images when the corruption is not fatal
+* Mime types listed in desktop files now correctly reflect enabled backends
+* New backends: libnsbmp, qoi, farbfeld, libwebp
+* Support for touchpad gestures on wayland
+* New command line option '-i' sets the app id of the created window
+
+v4.5.0 - 2024-02-20
+-------------------
+
+* Add new jpgxl backend
+* Added -W and -H arguments to configure initial dimensions
+* Fix utf8 in window titles
+* Fix some animated gifs showing as still images
+* Fix several crashes
+* Fixed new build warnings
+* Limit libnsgif to <1.0.0 to fix build
+* Update mime types
+
+v4.4.0 - 2023-01-18
+-------------------
+
+* Fixed critical error "wl_window: fix buffer size not divisible by scale"
+* Added libgrapheme 2.0.0 as an alternative to icu
+* Added '-w' option to specify window title at startup
+* Added background rectangle behind the (possibly multiline) overlay text
+* Changed chequered pattern to only over the image area for transparent images not the whole viewport
+* Renamed imv-folder to imv-dir
+* Fixed slideshow not always pausing correctly
+* Fixed imv-dir showing as a duplicate imv in its desktop file
+* Fixed whitespace bug in expanded title text
+* Made imv-dir fall back to imv behaviour when given too many arguments
+* Improved handling of paths from stdin
+* Minor documentation and changelog improvements
+
+v4.3.1 - 2021-12-14
+-------------------
+
+* Fix segfault when used with latest wlroots
+
+v4.3.0 - 2021-08-05
+-------------------
+
+* Give freeimage backend preceedence over libjpeg
+* Fix lack of X11 window deletion event handling
+* Scale fonts correctly for high-DPI wayland
+* Suppress annoying TIFF error messages
+* Fix missing -lm dependency for imv-msg
+* Fix image skipping when reading slow filesystems
+* Add a contrib directory
+* Add contrib/imv-folder
+* Fix zoom speed dependence on buffer/image width
+* Improve stat error handling when loading directories
+* Fix double-free when backend libjpeg is used
+* Fix -n option not working for symbolic links
+* List image/heif as a supported mime type
+* Fix flickering bug in high-DPI wayland
+
+v4.2.0 - 2020-12-17
+-------------------
+
+* Switched to meson build system
+* Added HEIF backend
+* Added rotate and flip commands
+* Added colour support for overlay
+* Added some missing command/config documentation
+* Read directories in alphabetical order
+* Fixed several memory leaks
+* Improved compatibility with non glibc systems
+* Fixed several window management bugs for Wayland
+* Fixed bug when selecting first/last image
+
+v4.1.0 - 2019-12-21
+-------------------
+
+* Added libsngif backend
+* Added command history to console
+* Added proper UTF-8 support to the console
+* Fixed name of libjpeg-turbo backend
+* Fixed reading images from stdin
+* Increased maximum supported PNG file size
+* Added Keywords to imv.desktop
+* Set NoDisplay in imv.desktop
+* Simplified async logic in backends
+* Fixed typo in manpages
+* Fixed name of the LGPL
+
+v4.0.1 - 2019-08-28
+-------------------
+
+* Documented default binds in man page
+* Added icon to imv.desktop
+* Added builtin aliases to provide backwards compatibility for removed commands
+* Added warning when legacy bind syntax is detected
+
+v4.0.0 - 2019-08-27
+-------------------
+
+BREAKING CHANGES:
+* Fixed keyboard layout handling, changing bind syntax
+* Renamed many commands (select_rel -> next/prev, select_abs -> goto, etc.)
+* Temporarily removed autoresize option
+
+* Dropped SDL2 dependency, implementing Wayland and X11 support natively
+  through imv-wayland and imv-x11 binaries
+* Added support for displaying SVGs at native resolution regardless of zoom
+  level
+* Added hidpi support on Wayland
+* Added '-c' argument to specify commands to run at startup
+* Added 'bind' command to add new binds at runtime
+* Added 'background' command to change background colour at runtime
+* Added 'upscaling' command to modify upscaling method at runtime
+* Added optional argument to close command to specify an index or all images
+* Added initial_pan option to configure which part of an image is initially
+  focused on
+* Added support for aliases passing arguments to underlying their commands
+* Added imv-msg program to send commands to a running instance of imv
+* Added $imv_pid environment variable
+* Allowed imv to remain open with no images open
+* Improved unicode support in overlay
+* Fixed typo in $imv_slideshow_duration environment variable
+* Added new crop scaling method, which will zoom in until an image completely
+  fills the window
+* Fixed a bug where 16-bit greyscale images would not load
+* Fixed a memory corruption bug in generic list implementation
+* Fixed several memory leaks
+
+v3.1.2 - 2019-06-24
+-------------------
+
+* Fix manpage packaging regression introduced in v3.1.1
+
+v3.1.1 - 2019-06-22
+-------------------
+
+* Adjusted Makefile to improve packaging on BSDs
+
+v3.1.0 - 2019-06-17
+-------------------
+
+* Added support for multiple image loaders, allowing imv to use libraries other
+  than FreeImage. This adds support for SVGs, and in the future, other formats
+  as required.
+* Loaders added for libpng, libtiff, librsvg, libturbojpeg.
+* Added support for binding multiple commands to a single key
+* Support for hidpi rendering with SDL >= 2.0.10
+* Added -v flag to show version number
+* Allow 'Escape' to be bound, changing bind abort sequence to 2x'Escape'
+* Fixed bug where path list from stdin would sometime be truncated
+* New releases only published under the MIT license, with FreeImage optionally
+  used under the FIPL
+* Fixed several memory leaks
+* Miscellaneous code cleanup and documentation fixes
+
+v3.0.0 - 2018-05-08
+-------------------
+
+BREAKING CHANGES:
+* Change a,s,S flags to -s <mode> syntax
+* Make -u take an argument
+
+
+* Dual-license under MIT and GPL
+* Large refactor of entire codebase
+* Added config file
+* Added command system
+* Added bind system
+* Improved power consumption by sleeping more opportunistically
+* Show image scale in window title by default
+* Prevent scrolling images offscreen
+* Fix bug where slideshow timer is not reset when an image is closed
+
+v2.1.3 - 2016-10-22
+-------------------
+
+* Fix various resource leaks
+* Fix a bug where imv would to try and catch up on long periods of lost gif
+  playback time if it were suspended for a second or more.
+* Improve handling of unusual read() return codes
+* Fix a linking issue with unit tests on some platforms
+
+v2.1.2 - 2016-06-15
+-------------------
+
+* Fix build issues introduced by v2.1.1
+
+v2.1.1 - 2016-05-12
+-------------------
+
+* Fix compatibility with older gcc versions
+* Fix bug where unchanged files were unnecessarily reloaded
+* Fix bug where first frame of gif or first slide was changed to quickly
+* Minor performance improvements
+
+v2.1.0 - 2016-04-27
+-------------------
+
+* Add `-x` option to quit imv when end of files reached
+* Honour EXIF rotation information in JPGs
+* Read file list from stdin continuously
+* Fix fullscreen bug with i3
+* Fix bug where gifs would sometimes not auto-scale when opened
+* Add commit hash to version string of non-release builds
+* Fix bug where '+' did not work on foreign keyboard layouts
+
+v2.0.0 - 2016-02-08
+-------------------
+
+BREAKING CHANGE:
+* When no arguments given, read paths from stdin
+* When '-' given as an argument, read file data from stdin
+
+
+* Use 'Monospace' as default font
+* Fixed some types of animated gifs that did not display correctly
+* Added third scaling mode: 'best fit' where images will be scaled down to fit,
+  but *not* scaled up to fill the window
+* Trimmed output of '-h', making the manpage the single source of truth
+* Improvements to documentation
+* Improved portability across platforms
+* Allow non-integral slideshow times
+* Improved test coverage
+* Various improvements to the build
+  - `uninstall` target added to Makefile
+  - `V` option added to Makefile
+  - Respect `PREFIX`, `CFLAGS`, and `LDFLAGS`
+
+v1.2.0 - 2015-12-11
+-------------------
+
+* Added a text overlay (-d to enable, 'd' to toggle)
+  - Font used is configurable with -e option
+* Added slideshow support (-t option)
+* Added -l option to list all open images on exit
+* Automatically reload images if they change on disk
+* Moved image loading into background thread to improve UI responsiveness
+* Auto hide the mouse when appropriate
+* Added support for upper and lower case hex in the -b option.
+* Fixed a couple of crashes
+
+v1.1.0 - 2015-11-14
+-------------------
+
+* Relicensed to GPL
+* Added support for transparency
+* Added 'p' hotkey to print the current image's path to stdout
+* Added '-n' option to start at a specific image
+* Added '-b' option to set the background
+* Added '-u' option to set resampling to nearest-neighbour
+* Changed '-i' option to '-' for reading paths from stdin
+* Added a .desktop file, for xdg-open support
+* Fixed compilation on Fedora 22
+* Fixed crash when using SDL's software renderer
+* Fixed bug where single frame gifs would not be rendered
+* Fixed animated gif playback speed for some unusual gifs
+* Fixed slow zoom speed on large images
+* Fixed a memory leak
+* Added a FreeImage copyright notice for GPL compliance
+
+v1.0.0 - 2015-11-11
+-------------------
+Initial release

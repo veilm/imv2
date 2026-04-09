@@ -1,0 +1,38 @@
+image: debian/stable
+packages:
+  - asciidoc
+  - clang
+  - libcmocka-dev
+  - libegl1-mesa-dev
+  - libgl-dev
+  - libheif-dev
+  - libicu-dev
+  - libinih-dev
+  - libjxl-dev
+  - liblcms2-dev
+  - libpango1.0-dev
+  - libpng-dev
+  - libqoi-dev
+  - librsvg2-dev
+  - libtiff-dev
+  - libturbojpeg-dev
+  - libwayland-dev
+  - libwebp-dev
+  - libx11-dev
+  - libxcb1-dev
+  - libxkbcommon-dev
+  - libxkbcommon-x11-dev
+  - mesa-common-dev
+  - meson
+  - wayland-protocols
+  - xxd
+sources:
+  - https://git.sr.ht/~exec64/imv
+tasks:
+  # libnsgif and libnsbmp aren't packaged by debian
+  - gcc: |
+      CC=gcc meson setup imv build_gcc -D auto_features=enabled -D libnsgif=disabled -D libnsbmp=disabled -Dwerror=true
+      CC=gcc ninja -C build_gcc test
+  - clang: |
+      CC=clang meson setup imv build_clang -D auto_features=enabled -D libnsgif=disabled -D libnsbmp=disabled -Dwerror=true
+      CC=clang ninja -C build_clang test

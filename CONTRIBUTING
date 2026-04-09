@@ -1,0 +1,13 @@
+                         imv Contributing Guidelines
+                         ===========================
+
+1) Please submit all patches to ~exec64/imv-devel@lists.sr.ht with
+   a subject line prefixed with [PATCH imv] or [PATCH imv v2] as
+   appropriate. This will help ensure that CI is run against your
+   patch automatically.
+
+2) Please ensure that your changes fit with the existing coding style of imv.
+   Strictly no tabs, and 2 spaces of indentation.
+
+3) All contributions are provided under the terms of the MIT license.
+   You retain the copyright ownership of any contributions you make.

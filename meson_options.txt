@@ -1,0 +1,131 @@
+# all - Build both, determine which to use at runtime
+# wayland - Only provide Wayland support
+# x11 - Only provide X11 support
+option('windows',
+  type : 'combo',
+  value : 'all',
+  choices : ['all', 'wayland', 'x11'],
+  description : 'window system to use'
+)
+
+# Unicode backend - default is ICU
+option('unicode',
+  type: 'combo',
+  value: 'icu',
+  choices : ['icu', 'grapheme'],
+  description : 'unicode library to use'
+)
+
+option('test',
+  type : 'feature',
+  description : 'enable tests'
+)
+
+option('contrib-commands',
+  type: 'boolean',
+  value: true,
+  description: 'Install extra commands available in `contrib/`'
+)
+
+option('man',
+  type : 'feature',
+  description : 'enable man pages'
+)
+
+# Available backends:
+
+# farbfeld
+# depends: none
+# license: ISC
+option('farbfeld',
+  type : 'feature',
+  description : 'provides: ff'
+)
+
+# libtiff
+# depends: libjpeg  zlib  xz  zstd
+# license: MIT
+option('libtiff',
+  type : 'feature',
+  description : 'provides: tiff'
+)
+
+# libpng http://www.libpng.org/pub/png/libpng.html
+# depends: zlib
+# license: libpng license
+option('libpng',
+  type : 'feature',
+  description : 'provides: png'
+)
+
+# libjpeg-turbo https://libjpeg-turbo.org/
+# depends: none
+# license: modified bsd
+option('libjpeg',
+  type : 'feature',
+  description : 'provides: jpeg'
+)
+
+# lcms2: https://github.com/mm2/Little-CMS
+# depends: none
+# license: MIT
+option('lcms2',
+  type : 'feature',
+  description : 'provides: better color conversion for JPEG images with embedded ICC profile'
+)
+
+# librsvg https://wiki.gnome.org/Projects/LibRsvg
+# depends: gdk-pixbuf2 pango libcroco
+# license: LGPL
+option('librsvg',
+  type : 'feature',
+  description : 'provides: svg'
+)
+
+# libnsgif https://www.netsurf-browser.org/projects/libnsgif/
+# depends: none
+# license: MIT
+option('libnsgif',
+  type : 'feature',
+  description : 'provides: animated gif'
+)
+
+# libnsbmp https://www.netsurf-browser.org/projects/libnsbmp/
+# depends: none
+# license: MIT
+option('libnsbmp',
+  type : 'feature',
+  description : 'provides: bmp'
+)
+
+# libheif http://www.libheif.org
+# depends: none
+# license: LGPL
+option('libheif',
+  type : 'feature',
+  description : 'provides: heif'
+)
+
+# libjxl https://jpeg.org/jpegxl/
+# depends: brotlidec, brotlienc, highway, lcms2
+# license: modified bsd
+option('libjxl',
+  type : 'feature',
+  description : 'provides: jxl'
+)
+
+# libwebp https://developers.google.com/speed/webp
+# depends: none
+# license: modified bsd
+option('libwebp',
+  type : 'feature',
+  description : 'provides: webp'
+)
+
+# qoi https://qoiformat.org/
+# depends: none
+# license: MIT
+option('qoi',
+  type : 'feature',
+  description : 'provides: qoi'
+)

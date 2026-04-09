@@ -1,0 +1,37 @@
+image: fedora/latest
+packages:
+  - asciidoc
+  - clang
+  - inih-devel
+  - lcms2-devel
+  - libX11-devel
+  - libcmocka-devel
+  - libheif-devel
+  - libicu-devel
+  - libjxl-devel
+  - libpng-devel
+  - librsvg2-devel
+  - libtiff-devel
+  - libwebp-devel
+  - libxcb-devel
+  - libxkbcommon-devel
+  - libxkbcommon-x11-devel
+  - mesa-libEGL-devel
+  - mesa-libGL-devel
+  - meson
+  - pango-devel
+  - qoi-devel
+  - turbojpeg-devel
+  - wayland-devel
+  - wayland-protocols-devel
+  - xxd
+sources:
+  - https://git.sr.ht/~exec64/imv
+tasks:
+  # libnsgif and libnsbmp aren't packaged by fedora
+  - gcc: |
+      CC=gcc meson setup imv build_gcc -D auto_features=enabled -D libnsgif=disabled -D libnsbmp=disabled -Dwerror=true
+      CC=gcc ninja -C build_gcc test
+  - clang: |
+      CC=clang meson setup imv build_clang -D auto_features=enabled -D libnsgif=disabled -D libnsbmp=disabled -Dwerror=true
+      CC=clang ninja -C build_clang test
