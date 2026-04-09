@@ -1347,12 +1347,12 @@ int imv_run(struct imv *imv)
   if (imv->list_marks_at_exit) {
     for (size_t i = 0; i < imv_navigator_length(imv->navigator); ++i) {
       if (imv_navigator_is_marked(imv->navigator, i)) {
-        puts(imv_navigator_at(imv->navigator, i));
+        puts(imv_navigator_display_at(imv->navigator, i));
       }
     }
   } else if (imv->list_files_at_exit) {
     for (size_t i = 0; i < imv_navigator_length(imv->navigator); ++i)
-      puts(imv_navigator_at(imv->navigator, i));
+      puts(imv_navigator_display_at(imv->navigator, i));
   }
 
   if (imv->paths_from_stdin) {
@@ -2260,7 +2260,7 @@ static void update_env_vars(struct imv *imv)
   snprintf(str, sizeof str, "%d", getpid());
   setenv("imv_pid", str, 1);
 
-  setenv("imv_current_file", imv_navigator_selection(imv->navigator), 1);
+  setenv("imv_current_file", imv_navigator_display_selection(imv->navigator), 1);
   setenv("imv_scaling_mode", scaling_label[imv->scaling_mode], 1);
   setenv("imv_loading", imv->loading ? "1" : "0", 1);
 

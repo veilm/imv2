@@ -8,6 +8,7 @@ Summary of veilm fork changes:
 - Adds nsxiv-style image marking
 	- `m` toggles the current image, and marked thumbnails show an X overlay
 	- `list_marks_at_exit = true` writes the marked paths to stdout on exit
+- displayed paths and stdout output now preserve the original relative input path when possible
 
 to build the Wayland binary and install it to `/usr/local/bin/imv`:
 ```
