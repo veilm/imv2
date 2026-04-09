@@ -20,6 +20,7 @@
 
 struct nav_item {
   char *path;
+  int marked;
 };
 
 struct imv_navigator {
@@ -135,6 +136,48 @@ size_t imv_navigator_index(struct imv_navigator *nav)
 void imv_navigator_set_looping(struct imv_navigator *nav, int looping)
 {
   nav->looping = looping != 0;
+}
+
+int imv_navigator_toggle_mark(struct imv_navigator *nav)
+{
+  if (nav->cur_path >= nav->paths->len) {
+    return 0;
+  }
+
+  struct nav_item *item = nav->paths->items[nav->cur_path];
+  item->marked = !item->marked;
+  return item->marked;
+}
+
+int imv_navigator_set_mark(struct imv_navigator *nav, size_t index, int marked)
+{
+  if (index >= nav->paths->len) {
+    return 0;
+  }
+
+  struct nav_item *item = nav->paths->items[index];
+  item->marked = marked != 0;
+  return item->marked;
+}
+
+int imv_navigator_is_marked(struct imv_navigator *nav, size_t index)
+{
+  if (index >= nav->paths->len) {
+    return 0;
+  }
+
+  struct nav_item *item = nav->paths->items[index];
+  return item->marked;
+}
+
+size_t imv_navigator_marked_count(struct imv_navigator *nav)
+{
+  size_t count = 0;
+  for (size_t i = 0; i < nav->paths->len; ++i) {
+    struct nav_item *item = nav->paths->items[i];
+    count += item->marked != 0;
+  }
+  return count;
 }
 
 void imv_navigator_select_rel(struct imv_navigator *nav, ssize_t direction)

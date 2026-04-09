@@ -69,6 +69,28 @@ static const int thumb_sizes[] = {
   64, 96, 128, 160, 192, 224, 256
 };
 
+static void draw_mark_overlay(struct imv_canvas *canvas, const struct thumb_item *item,
+    double scale, int border_width)
+{
+  const double line_width = scale * (border_width > 1 ? border_width : 2);
+  const int inset = border_width;
+  const int x = (int)(item->x * scale + 0.5);
+  const int y = (int)(item->y * scale + 0.5);
+  const int width = (int)(item->width * scale + 0.5);
+  const int height = (int)(item->height * scale + 0.5);
+  const int x1 = (int)((item->x + inset) * scale + 0.5);
+  const int y1 = (int)((item->y + inset) * scale + 0.5);
+  const int x2 = (int)((item->x + item->width - inset - 1) * scale + 0.5);
+  const int y2 = (int)((item->y + item->height - inset - 1) * scale + 0.5);
+
+  imv_canvas_color(canvas, 0.95f, 0.95f, 0.95f, 0.95f);
+  imv_canvas_stroke_rectangle(canvas, x, y, width, height, line_width);
+  if (x2 >= x1 && y2 >= y1) {
+    imv_canvas_stroke_line(canvas, x1, y1, x2, y2, line_width);
+    imv_canvas_stroke_line(canvas, x1, y2, x2, y1, line_width);
+  }
+}
+
 static void free_thumb_item(struct thumb_item *item)
 {
   if (item->image) {
@@ -538,6 +560,10 @@ void imv_thumbs_render(struct imv_thumbs *thumbs, struct imv_canvas *canvas,
           (int)((item->width + 2 * thumbs->border_width) * thumbs->scale + 0.5),
           (int)((item->height + 2 * thumbs->border_width) * thumbs->scale + 0.5),
           thumbs->border_width * thumbs->scale);
+    }
+
+    if (imv_navigator_is_marked(nav, i)) {
+      draw_mark_overlay(canvas, item, thumbs->scale, thumbs->border_width);
     }
 
     if ((i + 1 - thumbs->first) % (size_t)thumbs->cols == 0) {

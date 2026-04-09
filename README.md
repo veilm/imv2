@@ -5,6 +5,9 @@ Summary of veilm fork changes:
 	- thumbnail navigation integrated with the normal image list and commands
 - `loop_input = false` now clamps at the first/last image in your input set, instead of wrapping
 	- e.g. running `:next 10` when you're at image 8/10 now brings you to 10/10. stock imv could not do this
+- Adds nsxiv-style image marking
+	- `m` toggles the current image, and marked thumbnails show an X overlay
+	- `list_marks_at_exit = true` writes the marked paths to stdout on exit
 
 to build the Wayland binary and install it to `/usr/local/bin/imv`:
 ```

@@ -57,6 +57,9 @@ Options
 *-l*::
 	List open files to stdout at exit.
 
+*-m*::
+	List marked files to stdout at exit.
+
 *-n* <path|index>::
 	Start with the given path, or index selected.
 
@@ -145,6 +148,9 @@ Commands can be entered by pressing *:*. imv supports the following commands:
 	command executed. These are documented in the 'Environment Variables'
 	section.
 
+*mark* [toggle|on|off]::
+	Toggle the mark on the current image, or force it on/off explicitly.
+
 *center*::
 	Recenter the selected image.
 
@@ -222,6 +228,9 @@ imv comes with several binds configured by default
 
 *p*::
 	Print path of current image to stdout
+
+*m*::
+	Mark/unmark the current image
 
 *Up arrow*::
 	Zoom in
@@ -310,8 +319,14 @@ customising the window's title, or the overlay text.
 *$imv_current_index*::
 	Index of current image, from 1-N.
 
+*$imv_current_marked*::
+	1 if the current image is marked, 0 otherwise.
+
 *$imv_file_count*::
 	Total number of files.
+
+*$imv_mark_count*::
+	Total number of marked files.
 
 *$imv_width*::
 	Width of the current image.
