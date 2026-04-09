@@ -173,7 +173,7 @@ struct imv_thumbs *imv_thumbs_create(struct backends *backends,
   thumbs->backends = backends;
   thumbs->ready_cb = ready_cb;
   thumbs->ready_cb_data = ready_cb_data;
-  thumbs->size_index = 2;
+  thumbs->size_index = 4;
   thumbs->dirty = true;
   pthread_mutex_init(&thumbs->mutex, NULL);
   pthread_cond_init(&thumbs->cond, NULL);
