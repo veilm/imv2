@@ -511,19 +511,45 @@ static void event_handler(void *data, const struct imv_event *e)
         imv_viewport_update(imv->view, w, h, imv->current_image, imv->scaling_mode);
         imv_canvas_resize(imv->canvas, w, h);
         imv_canvas_font(imv->canvas, imv->overlay.font.name, imv->overlay.font.size * ui_scale);
+        imv_thumbs_resize(imv->thumbs, w, h);
+        sync_thumbs(imv);
+        imv->need_redraw = true;
         break;
       }
     case IMV_EVENT_KEYBOARD:
       key_handler(imv, e);
       break;
     case IMV_EVENT_MOUSE_MOTION:
-      if (imv_window_get_mouse_button(imv->window, 1)) {
+      if (imv->mode == IMV_MODE_IMAGE && imv_window_get_mouse_button(imv->window, 1)) {
         imv_viewport_move(imv->view, e->data.mouse_motion.dx,
             e->data.mouse_motion.dy, imv->current_image);
       }
       break;
+    case IMV_EVENT_MOUSE_BUTTON:
+      if (imv->mode == IMV_MODE_THUMB && e->data.mouse_button.pressed) {
+        double x, y;
+        imv_window_get_mouse_position(imv->window, &x, &y);
+        const int index = imv_thumbs_translate(imv->thumbs, (int)x, (int)y);
+        if (index >= 0) {
+          imv_navigator_select_abs(imv->navigator, index);
+          sync_thumbs(imv);
+          imv->need_redraw = true;
+          if (e->data.mouse_button.button == 3) {
+            command_thumbnail(NULL, NULL, imv);
+          }
+        }
+      }
+      break;
     case IMV_EVENT_MOUSE_SCROLL:
-      {
+      if (imv->mode == IMV_MODE_THUMB) {
+        size_t index = imv_navigator_index(imv->navigator);
+        const int dir = e->data.mouse_scroll.dy > 0 ? -1 : 1;
+        if (imv_thumbs_scroll(imv->thumbs, &index, imv_navigator_length(imv->navigator), dir, 0)) {
+          imv_navigator_select_abs(imv->navigator, index);
+          sync_thumbs(imv);
+          imv->need_redraw = true;
+        }
+      } else {
         double x, y;
         imv_window_get_mouse_position(imv->window, &x, &y);
         imv_viewport_zoom(imv->view, imv->current_image, IMV_ZOOM_MOUSE,
@@ -1166,8 +1192,15 @@ int imv_run(struct imv *imv)
      * may immediate close one and navigate onto the next. So we attempt to
      * load in a while loop until the navigation stops.
      */
-    while (imv_navigator_poll_changed(imv->navigator)) {
+    while (imv->force_image_load || imv_navigator_poll_changed(imv->navigator)) {
+      if (imv->mode == IMV_MODE_THUMB && !imv->force_image_load) {
+        sync_thumbs(imv);
+        imv->need_redraw = true;
+        continue;
+      }
+
       const char *current_path = imv_navigator_selection(imv->navigator);
+      imv->force_image_load = false;
       /* check we got a path back */
       if (strcmp("", current_path)) {
 
@@ -1349,10 +1382,11 @@ static bool setup_window(struct imv *imv)
   imv_window_set_fullscreen(imv->window, imv->start_fullscreen);
 
   {
-    int w, h;
-    imv_window_get_framebuffer_size(imv->window, &w, &h);
-    imv->canvas = imv_canvas_create(w, h);
+    int bw, bh;
+    imv_window_get_framebuffer_size(imv->window, &bw, &bh);
+    imv->canvas = imv_canvas_create(bw, bh);
     imv_canvas_font(imv->canvas, imv->overlay.font.name, imv->overlay.font.size);
+    imv_thumbs_resize(imv->thumbs, bw, bh);
   }
 
   return true;
@@ -1464,8 +1498,8 @@ static void render_window(struct imv *imv)
     imv_canvas_draw(imv->canvas);
   }
 
-  /* draw our actual image */
-  if (imv->current_image) {
+  if (imv->mode == IMV_MODE_IMAGE && imv->current_image) {
+    /* draw our actual image */
     int x, y;
     double scale, rotation;
     bool mirrored;
@@ -1480,9 +1514,14 @@ static void render_window(struct imv *imv)
     imv_canvas_draw_image(imv->canvas, imv->current_image,
                           x, y, scale, rotation, mirrored,
                           imv->upscaling_method);
+    imv_canvas_clear(imv->canvas);
+  } else if (imv->mode == IMV_MODE_THUMB) {
+    imv_canvas_clear(imv->canvas);
+    imv_thumbs_render(imv->thumbs, imv->canvas, imv->navigator,
+        imv_navigator_index(imv->navigator), imv->upscaling_method);
+  } else {
+    imv_canvas_clear(imv->canvas);
   }
-
-  imv_canvas_clear(imv->canvas);
 
   int w, h;
   imv_window_get_framebuffer_size(imv->window, &w, &h);
