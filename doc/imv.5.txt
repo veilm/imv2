@@ -47,7 +47,9 @@ The *[options]* section accepts the following settings:
 	Defaults to 'false'.
 
 *loop_input* = <true|false>::
-	Return to first image after viewing the last one. Defaults to 'true'.
+	Wrap navigation from the last image back to the first, and from the first
+	image back to the last. If set to 'false', navigation clamps at the ends.
+	Defaults to 'true'.
 
 *overlay* = <true|false>::
 	Start with the overlay visible. Defaults to 'false'.

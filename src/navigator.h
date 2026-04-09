@@ -24,6 +24,9 @@ const char *imv_navigator_selection(struct imv_navigator *nav);
 /* Returns the index of the currently selected path */
 size_t imv_navigator_index(struct imv_navigator *nav);
 
+/* Enable or disable wrap-around navigation */
+void imv_navigator_set_looping(struct imv_navigator *nav, int looping);
+
 /* Change the currently selected path. dir = -1 for previous, 1 for next. */
 void imv_navigator_select_rel(struct imv_navigator *nav, ssize_t dir);
 
