@@ -1827,8 +1827,8 @@ static void command_pan(struct list *args, const char *argstr, void *data)
 
   if (imv->mode == IMV_MODE_THUMB) {
     size_t index = imv_navigator_index(imv->navigator);
-    const int dx = (x > 0) - (x < 0);
-    const int dy = (y > 0) - (y < 0);
+    const int dx = (x < 0) - (x > 0);
+    const int dy = (y < 0) - (y > 0);
     if (imv_thumbs_move(imv->thumbs, &index, imv_navigator_length(imv->navigator),
         dx, dy, 1)) {
       imv_navigator_select_abs(imv->navigator, index);

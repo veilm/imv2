@@ -344,7 +344,16 @@ int imv_thumbs_scroll(struct imv_thumbs *thumbs, size_t *index,
   }
 
   thumbs->first -= thumbs->first % (size_t)thumbs->cols;
-  imv_thumbs_set_index(thumbs, *index, count);
+  const size_t column = *index % (size_t)thumbs->cols;
+  const size_t page_size = (size_t)thumbs->cols * (size_t)thumbs->rows;
+  if (*index >= thumbs->first + page_size) {
+    *index = thumbs->first + column + (size_t)thumbs->cols * (size_t)(thumbs->rows - 1);
+  } else if (*index < thumbs->first) {
+    *index = thumbs->first + column;
+  }
+  if (*index >= count) {
+    *index = count - 1;
+  }
   thumbs->dirty = true;
   return 1;
 }
