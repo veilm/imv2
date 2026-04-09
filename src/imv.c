@@ -643,6 +643,7 @@ struct imv *imv_create(void)
   }
   imv->binds = imv_binds_create();
   imv->navigator = imv_navigator_create();
+  imv_navigator_set_looping(imv->navigator, imv->loop_input);
   imv->thumbs = imv_thumbs_create(imv->backends, thumb_ready_callback, imv);
   imv->commands = imv_commands_create();
   imv->console = imv_console_create();
@@ -986,7 +987,10 @@ bool imv_parse_args(struct imv *imv, int argc, char **argv)
       case 'f': imv->start_fullscreen = true;                    break;
       case 'r': imv->recursive_load = true;                      break;
       case 'd': imv->overlay.enabled = true;                     break;
-      case 'x': imv->loop_input = false;                         break;
+      case 'x':
+        imv->loop_input = false;
+        imv_navigator_set_looping(imv->navigator, imv->loop_input);
+        break;
       case 'l': imv->list_files_at_exit = true;                  break;
       case 'n': imv->starting_path = optarg;                     break;
       case 'V': imv->log_level = IMV_DEBUG;                      break;
@@ -1184,11 +1188,6 @@ int imv_run(struct imv *imv)
 
 
   while (!imv->quit) {
-
-    /* Check if navigator wrapped around paths lists */
-    if (!imv->loop_input && imv_navigator_wrapped(imv->navigator)) {
-      break;
-    }
 
     /* If the user has changed image, start loading the new one. It's possible
      * that there are lots of unsupported files listed back to back, so we
@@ -1693,6 +1692,7 @@ static int handle_ini_value(void *user, const char *section, const char *name,
 
     if (!strcmp(name, "loop_input")) {
       imv->loop_input = parse_bool(value);
+      imv_navigator_set_looping(imv->navigator, imv->loop_input);
       return 1;
     }
 
