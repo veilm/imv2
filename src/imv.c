@@ -155,6 +155,7 @@ struct imv {
   /* scale up / down images to match window, or actual size */
   enum scaling_mode scaling_mode;
   enum imv_mode mode;
+  bool thumb_exit_pending;
 
   /* initial pan factor when opening new images */
   bool custom_start_pan;
@@ -1403,6 +1404,11 @@ static void handle_new_image(struct imv *imv, struct imv_image *image, int frame
     imv_image_free(imv->current_image);
   }
   imv->current_image = image;
+  if (imv->thumb_exit_pending) {
+    imv->thumb_exit_pending = false;
+    imv->mode = IMV_MODE_IMAGE;
+    imv_viewport_reset_transform(imv->view);
+  }
   imv->need_redraw = true;
   imv->need_rescale = true;
   imv->loading = false;
@@ -1456,6 +1462,9 @@ static void consume_internal_event(struct imv *imv, struct internal_event *event
 
     imv_navigator_remove(imv->navigator, err_path);
     sync_thumbs(imv);
+    if (imv->thumb_exit_pending) {
+      imv->force_image_load = true;
+    }
 
   } else if (event->type == NEW_PATH) {
     /* Received a new path from the stdin reading thread */
@@ -2099,13 +2108,12 @@ static void command_thumbnail(struct list *args, const char *argstr, void *data)
   struct imv *imv = data;
 
   if (imv->mode == IMV_MODE_IMAGE) {
+    imv->thumb_exit_pending = false;
     imv->mode = IMV_MODE_THUMB;
     sync_thumbs(imv);
   } else {
-    imv->mode = IMV_MODE_IMAGE;
+    imv->thumb_exit_pending = true;
     imv->force_image_load = true;
-    imv_viewport_reset_transform(imv->view);
-    imv->need_rescale = true;
   }
   imv->need_redraw = true;
 }

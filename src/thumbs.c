@@ -482,31 +482,30 @@ void imv_thumbs_render(struct imv_thumbs *thumbs, struct imv_canvas *canvas,
     struct imv_navigator *nav, size_t selected,
     enum upscaling_method upscaling_method)
 {
-  if (!thumbs->dirty) {
-    return;
+  if (thumbs->dirty) {
+    update_metrics(thumbs);
+    imv_thumbs_set_index(thumbs, selected, thumbs->count);
+
+    const size_t page_size = (size_t)thumbs->cols * (size_t)thumbs->rows;
+    thumbs->end = thumbs->first + page_size;
+    if (thumbs->end > thumbs->count) {
+      thumbs->end = thumbs->count;
+    }
+
+    trim_cache(thumbs);
+
+    int count = (int)(thumbs->end - thumbs->first);
+    if (count < 0) {
+      count = 0;
+    }
+    const int partial_row = count % thumbs->cols ? 1 : 0;
+    const int rows_used = count == 0 ? 0 : count / thumbs->cols + partial_row;
+    thumbs->x = (thumbs->window_width - (count < thumbs->cols ? count : thumbs->cols) * thumbs->cell_size) / 2
+        + thumbs->border_width + 3;
+    thumbs->y = (thumbs->window_height - rows_used * thumbs->cell_size) / 2
+        + thumbs->border_width + 3;
+    thumbs->dirty = false;
   }
-
-  update_metrics(thumbs);
-  imv_thumbs_set_index(thumbs, selected, thumbs->count);
-
-  const size_t page_size = (size_t)thumbs->cols * (size_t)thumbs->rows;
-  thumbs->end = thumbs->first + page_size;
-  if (thumbs->end > thumbs->count) {
-    thumbs->end = thumbs->count;
-  }
-
-  trim_cache(thumbs);
-
-  int count = (int)(thumbs->end - thumbs->first);
-  if (count < 0) {
-    count = 0;
-  }
-  const int partial_row = count % thumbs->cols ? 1 : 0;
-  const int rows_used = count == 0 ? 0 : count / thumbs->cols + partial_row;
-  thumbs->x = (thumbs->window_width - (count < thumbs->cols ? count : thumbs->cols) * thumbs->cell_size) / 2
-      + thumbs->border_width + 3;
-  thumbs->y = (thumbs->window_height - rows_used * thumbs->cell_size) / 2
-      + thumbs->border_width + 3;
 
   int x = thumbs->x;
   int y = thumbs->y;
@@ -531,7 +530,7 @@ void imv_thumbs_render(struct imv_thumbs *thumbs, struct imv_canvas *canvas,
           upscaling_method);
     }
 
-    if (i == selected) {
+    if (i == selected && item->image) {
       imv_canvas_color(canvas, 0.90f, 0.90f, 0.90f, 1.0f);
       imv_canvas_stroke_rectangle(canvas,
           (int)((item->x - thumbs->border_width) * thumbs->scale + 0.5),
@@ -549,6 +548,5 @@ void imv_thumbs_render(struct imv_thumbs *thumbs, struct imv_canvas *canvas,
     }
   }
 
-  thumbs->dirty = false;
   imv_thumbs_schedule(thumbs, nav);
 }
