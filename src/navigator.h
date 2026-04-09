@@ -27,6 +27,18 @@ size_t imv_navigator_index(struct imv_navigator *nav);
 /* Enable or disable wrap-around navigation */
 void imv_navigator_set_looping(struct imv_navigator *nav, int looping);
 
+/* Toggle the mark on the current item. Returns 1 if now marked, 0 otherwise. */
+int imv_navigator_toggle_mark(struct imv_navigator *nav);
+
+/* Set or clear the mark on a given item. Returns 1 if the item is marked. */
+int imv_navigator_set_mark(struct imv_navigator *nav, size_t index, int marked);
+
+/* Returns 1 if the given item is marked, 0 otherwise. */
+int imv_navigator_is_marked(struct imv_navigator *nav, size_t index);
+
+/* Return the number of marked items. */
+size_t imv_navigator_marked_count(struct imv_navigator *nav);
+
 /* Change the currently selected path. dir = -1 for previous, 1 for next. */
 void imv_navigator_select_rel(struct imv_navigator *nav, ssize_t dir);
 

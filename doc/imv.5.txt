@@ -46,6 +46,11 @@ The *[options]* section accepts the following settings:
 	Print open files to stdout at exit, each on a separate line.
 	Defaults to 'false'.
 
+*list_marks_at_exit* = <true|false>::
+	Print marked files to stdout at exit, each on a separate line.
+	If enabled, this takes precedence over *list_files_at_exit*.
+	Defaults to 'false'.
+
 *loop_input* = <true|false>::
 	Wrap navigation from the last image back to the first, and from the first
 	image back to the last. If set to 'false', navigation clamps at the ends.

@@ -142,6 +142,17 @@ void imv_canvas_stroke_rectangle(struct imv_canvas *canvas, int x, int y,
   cairo_restore(canvas->cairo);
 }
 
+void imv_canvas_stroke_line(struct imv_canvas *canvas, int x1, int y1,
+                            int x2, int y2, double line_width)
+{
+  cairo_save(canvas->cairo);
+  cairo_set_line_width(canvas->cairo, line_width);
+  cairo_move_to(canvas->cairo, x1, y1);
+  cairo_line_to(canvas->cairo, x2, y2);
+  cairo_stroke(canvas->cairo);
+  cairo_restore(canvas->cairo);
+}
+
 void imv_canvas_fill(struct imv_canvas *canvas)
 {
   cairo_rectangle(canvas->cairo, 0, 0, canvas->width, canvas->height);

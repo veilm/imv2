@@ -143,6 +143,9 @@ struct imv {
   /* print all paths to stdout on clean exit */
   bool list_files_at_exit;
 
+  /* print marked paths to stdout on clean exit */
+  bool list_marks_at_exit;
+
   /* read paths from stdin, as opposed to image data */
   bool paths_from_stdin;
 
@@ -240,6 +243,7 @@ static void command_reset(struct list *args, const char *argstr, void *data);
 static void command_next_frame(struct list *args, const char *argstr, void *data);
 static void command_toggle_playing(struct list *args, const char *argstr, void *data);
 static void command_thumbnail(struct list *args, const char *argstr, void *data);
+static void command_mark(struct list *args, const char *argstr, void *data);
 static void command_set_scaling_mode(struct list *args, const char *argstr, void *data);
 static void command_set_upscaling_method(struct list *args, const char *argstr, void *data);
 static void command_set_slideshow_duration(struct list *args, const char *argstr, void *data);
@@ -689,6 +693,7 @@ struct imv *imv_create(void)
   imv_command_register(imv->commands, "next_frame", &command_next_frame);
   imv_command_register(imv->commands, "toggle_playing", &command_toggle_playing);
   imv_command_register(imv->commands, "thumbnail", &command_thumbnail);
+  imv_command_register(imv->commands, "mark", &command_mark);
   imv_command_register(imv->commands, "scaling", &command_set_scaling_mode);
   imv_command_register(imv->commands, "upscaling", &command_set_upscaling_method);
   imv_command_register(imv->commands, "slideshow", &command_set_slideshow_duration);
@@ -724,6 +729,7 @@ struct imv *imv_create(void)
   add_bind(imv, "x", "close");
   add_bind(imv, "f", "fullscreen");
   add_bind(imv, "d", "overlay");
+  add_bind(imv, "m", "mark");
   add_bind(imv, "p", "exec echo $imv_current_file");
   add_bind(imv, "<Up>", "zoom 1");
   add_bind(imv, "<Shift+plus>", "zoom 1");
@@ -982,7 +988,7 @@ bool imv_parse_args(struct imv *imv, int argc, char **argv)
   int o;
 
  /* TODO getopt_long */
-  while ((o = getopt(argc, argv, "frdxhvli:u:s:n:b:t:c:C:w:W:H:V")) != -1) {
+  while ((o = getopt(argc, argv, "frdxhvlmi:u:s:n:b:t:c:C:w:W:H:V")) != -1) {
     switch(o) {
       case 'f': imv->start_fullscreen = true;                    break;
       case 'r': imv->recursive_load = true;                      break;
@@ -992,6 +998,7 @@ bool imv_parse_args(struct imv *imv, int argc, char **argv)
         imv_navigator_set_looping(imv->navigator, imv->loop_input);
         break;
       case 'l': imv->list_files_at_exit = true;                  break;
+      case 'm': imv->list_marks_at_exit = true;                  break;
       case 'n': imv->starting_path = optarg;                     break;
       case 'V': imv->log_level = IMV_DEBUG;                      break;
       case 'h':
@@ -1337,7 +1344,13 @@ int imv_run(struct imv *imv)
     imv_window_pump_events(imv->window, event_handler, imv);
   }
 
-  if (imv->list_files_at_exit) {
+  if (imv->list_marks_at_exit) {
+    for (size_t i = 0; i < imv_navigator_length(imv->navigator); ++i) {
+      if (imv_navigator_is_marked(imv->navigator, i)) {
+        puts(imv_navigator_at(imv->navigator, i));
+      }
+    }
+  } else if (imv->list_files_at_exit) {
     for (size_t i = 0; i < imv_navigator_length(imv->navigator); ++i)
       puts(imv_navigator_at(imv->navigator, i));
   }
@@ -1698,6 +1711,11 @@ static int handle_ini_value(void *user, const char *section, const char *name,
 
     if (!strcmp(name, "list_files_at_exit")) {
       imv->list_files_at_exit = parse_bool(value);
+      return 1;
+    }
+
+    if (!strcmp(name, "list_marks_at_exit")) {
+      imv->list_marks_at_exit = parse_bool(value);
       return 1;
     }
 
@@ -2118,6 +2136,28 @@ static void command_thumbnail(struct list *args, const char *argstr, void *data)
   imv->need_redraw = true;
 }
 
+static void command_mark(struct list *args, const char *argstr, void *data)
+{
+  (void)argstr;
+  struct imv *imv = data;
+  const size_t index = imv_navigator_index(imv->navigator);
+  if (imv_navigator_length(imv->navigator) == 0) {
+    return;
+  }
+
+  if (args->len < 2 || !strcmp(args->items[1], "toggle")) {
+    imv_navigator_toggle_mark(imv->navigator);
+  } else if (!strcmp(args->items[1], "on")) {
+    imv_navigator_set_mark(imv->navigator, index, 1);
+  } else if (!strcmp(args->items[1], "off")) {
+    imv_navigator_set_mark(imv->navigator, index, 0);
+  } else {
+    return;
+  }
+
+  imv->need_redraw = true;
+}
+
 static void command_set_scaling_mode(struct list *args, const char *argstr, void *data)
 {
   (void)args;
@@ -2227,12 +2267,18 @@ static void update_env_vars(struct imv *imv)
   if (imv_navigator_length(imv->navigator)) {
     snprintf(str, sizeof str, "%zu", imv_navigator_index(imv->navigator) + 1);
     setenv("imv_current_index", str, 1);
+    setenv("imv_current_marked",
+        imv_navigator_is_marked(imv->navigator, imv_navigator_index(imv->navigator)) ? "1" : "0", 1);
   } else {
     setenv("imv_current_index", "0", 1);
+    setenv("imv_current_marked", "0", 1);
   }
 
   snprintf(str, sizeof str, "%zu", imv_navigator_length(imv->navigator));
   setenv("imv_file_count", str, 1);
+
+  snprintf(str, sizeof str, "%zu", imv_navigator_marked_count(imv->navigator));
+  setenv("imv_mark_count", str, 1);
 
   snprintf(str, sizeof str, "%d", imv_image_width(imv->current_image));
   setenv("imv_width", str, 1);
