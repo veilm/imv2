@@ -1089,7 +1089,28 @@ bool imv_parse_args(struct imv *imv, int argc, char **argv)
 
 void imv_add_path(struct imv *imv, const char *path)
 {
+  const size_t start = imv_navigator_length(imv->navigator);
   imv_navigator_add(imv->navigator, path, imv->recursive_load);
+
+  for (size_t i = start; i < imv_navigator_length(imv->navigator);) {
+    const char *current_path = imv_navigator_at(imv->navigator, i);
+
+    if (!current_path || strcmp(current_path, "-") == 0) {
+      ++i;
+      continue;
+    }
+
+    struct imv_source *src = NULL;
+    const enum backend_result result =
+        backends_open_path(imv->backends, current_path, &src);
+    if (result == BACKEND_SUCCESS && src) {
+      imv_source_free(src);
+      ++i;
+      continue;
+    }
+
+    imv_navigator_remove_at(imv->navigator, i);
+  }
 }
 
 int imv_run(struct imv *imv)
@@ -2017,9 +2038,12 @@ static void command_open(struct list *args, const char *argstr, void *data)
 
   wordexp_t word;
   if (wordexp(argstr, &word, 0) == 0) {
+    const bool original_recursive = imv->recursive_load;
+    imv->recursive_load = recursive;
     for (size_t i = 0; i < word.we_wordc; ++i) {
-      imv_navigator_add(imv->navigator, word.we_wordv[i], recursive);
+      imv_add_path(imv, word.we_wordv[i]);
     }
+    imv->recursive_load = original_recursive;
     wordfree(&word);
   }
   sync_thumbs(imv);
