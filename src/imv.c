@@ -59,6 +59,7 @@ enum internal_event_type {
   NEW_IMAGE,
   BAD_IMAGE,
   NEW_PATH,
+  INVALID_PATH,
   THUMB_LOADED,
   COMMAND
 };
@@ -78,6 +79,9 @@ struct internal_event {
     struct {
       char *path;
     } new_path;
+    struct {
+      char *path;
+    } invalid_path;
     struct {
       size_t index;
       unsigned generation;
@@ -200,6 +204,13 @@ struct imv {
   /* list of startup commands to be run when the image changes */
   struct list *image_change_commands;
 
+  pthread_t path_validate_thread;
+  pthread_mutex_t path_validate_mutex;
+  pthread_cond_t path_validate_cond;
+  bool path_validate_stop;
+  bool path_validate_started;
+  struct list *pending_validation_paths;
+
   /* the user-specified format strings for the overlay and window title */
   char *title_text;
 
@@ -252,6 +263,9 @@ static void command_bind(struct list *args, const char *argstr, void *data);
 
 static bool setup_window(struct imv *imv);
 static void consume_internal_event(struct imv *imv, struct internal_event *event);
+static void queue_path_validation(struct imv *imv, const char *path);
+static bool start_path_validator(struct imv *imv);
+static void stop_path_validator(struct imv *imv);
 static void render_window(struct imv *imv);
 static void update_env_vars(struct imv *imv);
 static size_t generate_env_text(struct imv *imv, char *buf, size_t len, const char *format);
@@ -451,6 +465,96 @@ static void thumb_ready_callback(size_t index, unsigned generation,
     }
   };
   imv_window_push_event(imv->window, &e);
+}
+
+static void push_invalid_path_event(struct imv *imv, char *path)
+{
+  struct internal_event *event = calloc(1, sizeof *event);
+  event->type = INVALID_PATH;
+  event->data.invalid_path.path = path;
+
+  struct imv_event e = {
+    .type = IMV_EVENT_CUSTOM,
+    .data = {
+      .custom = event
+    }
+  };
+  imv_window_push_event(imv->window, &e);
+}
+
+static void *path_validate_thread_fn(void *data)
+{
+  struct imv *imv = data;
+
+  while (true) {
+    pthread_mutex_lock(&imv->path_validate_mutex);
+    while (!imv->path_validate_stop && imv->pending_validation_paths->len == 0) {
+      pthread_cond_wait(&imv->path_validate_cond, &imv->path_validate_mutex);
+    }
+
+    if (imv->path_validate_stop) {
+      pthread_mutex_unlock(&imv->path_validate_mutex);
+      break;
+    }
+
+    char *path = imv->pending_validation_paths->items[0];
+    list_remove(imv->pending_validation_paths, 0);
+    pthread_mutex_unlock(&imv->path_validate_mutex);
+
+    struct imv_source *src = NULL;
+    const enum backend_result result =
+        backends_open_path(imv->backends, path, &src);
+    if (result == BACKEND_SUCCESS && src) {
+      imv_source_free(src);
+      free(path);
+    } else {
+      push_invalid_path_event(imv, path);
+    }
+  }
+
+  return NULL;
+}
+
+static void queue_path_validation(struct imv *imv, const char *path)
+{
+  if (!path || strcmp(path, "-") == 0) {
+    return;
+  }
+
+  char *copy = strdup(path);
+  if (!copy) {
+    return;
+  }
+
+  pthread_mutex_lock(&imv->path_validate_mutex);
+  list_append(imv->pending_validation_paths, copy);
+  pthread_cond_signal(&imv->path_validate_cond);
+  pthread_mutex_unlock(&imv->path_validate_mutex);
+}
+
+static bool start_path_validator(struct imv *imv)
+{
+  if (imv->path_validate_started) {
+    return true;
+  }
+
+  imv->path_validate_started =
+      pthread_create(&imv->path_validate_thread, NULL, path_validate_thread_fn, imv) == 0;
+  return imv->path_validate_started;
+}
+
+static void stop_path_validator(struct imv *imv)
+{
+  if (!imv->path_validate_started) {
+    return;
+  }
+
+  pthread_mutex_lock(&imv->path_validate_mutex);
+  imv->path_validate_stop = true;
+  pthread_cond_signal(&imv->path_validate_cond);
+  pthread_mutex_unlock(&imv->path_validate_mutex);
+  pthread_join(imv->path_validate_thread, NULL);
+  imv->path_validate_started = false;
 }
 
 static void sync_thumbs(struct imv *imv)
@@ -674,6 +778,9 @@ struct imv *imv_create(void)
   imv->overlay.position_at_bottom = false;
   imv->startup_commands = list_create();
   imv->image_change_commands = list_create();
+  imv->pending_validation_paths = list_create();
+  pthread_mutex_init(&imv->path_validate_mutex, NULL);
+  pthread_cond_init(&imv->path_validate_cond, NULL);
 
   imv_command_register(imv->commands, "quit", &command_quit);
   imv_command_register(imv->commands, "pan", &command_pan);
@@ -753,6 +860,10 @@ struct imv *imv_create(void)
 
 void imv_free(struct imv *imv)
 {
+  stop_path_validator(imv);
+  list_deep_free(imv->pending_validation_paths);
+  pthread_cond_destroy(&imv->path_validate_cond);
+  pthread_mutex_destroy(&imv->path_validate_mutex);
   free(imv->overlay.font.name);
   free(imv->title_text);
   free(imv->app_id);
@@ -1092,24 +1203,8 @@ void imv_add_path(struct imv *imv, const char *path)
   const size_t start = imv_navigator_length(imv->navigator);
   imv_navigator_add(imv->navigator, path, imv->recursive_load);
 
-  for (size_t i = start; i < imv_navigator_length(imv->navigator);) {
-    const char *current_path = imv_navigator_at(imv->navigator, i);
-
-    if (!current_path || strcmp(current_path, "-") == 0) {
-      ++i;
-      continue;
-    }
-
-    struct imv_source *src = NULL;
-    const enum backend_result result =
-        backends_open_path(imv->backends, current_path, &src);
-    if (result == BACKEND_SUCCESS && src) {
-      imv_source_free(src);
-      ++i;
-      continue;
-    }
-
-    imv_navigator_remove_at(imv->navigator, i);
+  for (size_t i = start; i < imv_navigator_length(imv->navigator); ++i) {
+    queue_path_validation(imv, imv_navigator_at(imv->navigator, i));
   }
 }
 
@@ -1119,6 +1214,9 @@ int imv_run(struct imv *imv)
     return 0;
 
   if (!setup_window(imv))
+    return 1;
+
+  if (!start_path_validator(imv))
     return 1;
 
   imv->ipc = imv_ipc_create();
@@ -1506,6 +1604,20 @@ static void consume_internal_event(struct imv *imv, struct internal_event *event
     sync_thumbs(imv);
     /* Need to update image count in title */
     imv->need_redraw = true;
+
+  } else if (event->type == INVALID_PATH) {
+    const char *current_path = imv_navigator_selection(imv->navigator);
+    const bool removed_current = current_path
+        && strcmp(current_path, "") != 0
+        && strcmp(current_path, event->data.invalid_path.path) == 0;
+
+    imv_navigator_remove(imv->navigator, event->data.invalid_path.path);
+    sync_thumbs(imv);
+    if (removed_current || imv->thumb_exit_pending) {
+      imv->force_image_load = true;
+    }
+    imv->need_redraw = true;
+    free(event->data.invalid_path.path);
 
   } else if (event->type == THUMB_LOADED) {
     imv_thumbs_handle_loaded(imv->thumbs, event->data.thumb_loaded.index,
