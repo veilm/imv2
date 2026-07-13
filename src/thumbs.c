@@ -278,7 +278,7 @@ void imv_thumbs_resync(struct imv_thumbs *thumbs, struct imv_navigator *nav)
       }
 
       new_items[i] = old_items[j];
-      old_items[j].path = NULL;
+      old_items[j] = (struct thumb_item){0};
       if (new_items[i].state == THUMB_LOADING) {
         free_thumb_item(&new_items[i]);
       }

@@ -122,6 +122,7 @@ static enum backend_result open_file(FILE *f, struct imv_source **src)
   png_set_strip_16(private->png);
   png_set_expand(private->png);
   png_set_packing(private->png);
+  png_set_interlace_handling(private->png);
   png_read_update_info(private->png, private->info);
   imv_log(IMV_DEBUG, "libpng: info width=%d height=%d bit_depth=%d color_type=%d\n",
       png_get_image_width(private->png, private->info),
