@@ -280,6 +280,10 @@ void imv_navigator_remove(struct imv_navigator *nav, const char *path)
     return;
   }
 
+  if (removed < nav->cur_path) {
+    --nav->cur_path;
+  }
+
   if (nav->cur_path == removed) {
     /* We just removed the current path */
     if (nav->last_move_direction < 0) {
@@ -310,6 +314,10 @@ void imv_navigator_remove_at(struct imv_navigator *nav, size_t index)
   free(item->display_path);
   free(item);
   list_remove(nav->paths, index);
+
+  if (index < nav->cur_path) {
+    --nav->cur_path;
+  }
 
   if (nav->cur_path == index) {
     /* We just removed the current path */

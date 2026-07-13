@@ -20,6 +20,7 @@ enum thumb_state {
 };
 
 struct thumb_item {
+  char *path;
   struct imv_image *image;
   enum thumb_state state;
   int x;
@@ -105,6 +106,8 @@ static void free_thumb_item(struct thumb_item *item)
     imv_image_free(item->image);
     item->image = NULL;
   }
+  free(item->path);
+  item->path = NULL;
   item->state = THUMB_EMPTY;
 }
 
@@ -260,10 +263,34 @@ void imv_thumbs_resync(struct imv_thumbs *thumbs, struct imv_navigator *nav)
     return;
   }
 
-  clear_thumbs(thumbs);
+  struct thumb_item *old_items = thumbs->items;
+  const size_t old_count = thumbs->count;
+  struct thumb_item *new_items = NULL;
   if (count > 0) {
-    thumbs->items = calloc(count, sizeof *thumbs->items);
+    new_items = calloc(count, sizeof *new_items);
   }
+
+  for (size_t i = 0; i < count; ++i) {
+    const char *path = imv_navigator_at(nav, i);
+    for (size_t j = 0; j < old_count; ++j) {
+      if (!old_items[j].path || strcmp(old_items[j].path, path) != 0) {
+        continue;
+      }
+
+      new_items[i] = old_items[j];
+      old_items[j].path = NULL;
+      if (new_items[i].state == THUMB_LOADING) {
+        free_thumb_item(&new_items[i]);
+      }
+      break;
+    }
+  }
+
+  for (size_t i = 0; i < old_count; ++i) {
+    free_thumb_item(&old_items[i]);
+  }
+  free(old_items);
+  thumbs->items = new_items;
   thumbs->count = count;
   ++thumbs->generation;
   thumbs->first = 0;
@@ -448,7 +475,7 @@ bool imv_thumbs_handle_loaded(struct imv_thumbs *thumbs, size_t index,
   item->image = image;
   item->state = image ? THUMB_READY : THUMB_FAILED;
   thumbs->dirty = true;
-  return image != NULL;
+  return true;
 }
 
 static void trim_cache(struct imv_thumbs *thumbs)
@@ -495,6 +522,12 @@ void imv_thumbs_schedule(struct imv_thumbs *thumbs, struct imv_navigator *nav)
     }
 
     item->state = THUMB_LOADING;
+    item->path = strdup(path);
+    if (!item->path) {
+      free(path);
+      item->state = THUMB_EMPTY;
+      return;
+    }
     pthread_mutex_lock(&thumbs->mutex);
     free(thumbs->job_path);
     thumbs->job_path = path;

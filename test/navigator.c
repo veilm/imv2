@@ -106,12 +106,30 @@ static void test_navigator_file_changed(void **state)
   imv_navigator_free(nav);
 }
 
+static void test_navigator_remove_before_selection(void **state)
+{
+  (void)state;
+  struct imv_navigator *nav = imv_navigator_create();
+
+  imv_navigator_add(nav, FILENAME1, 0);
+  imv_navigator_add(nav, FILENAME2, 0);
+  imv_navigator_add(nav, FILENAME3, 0);
+  imv_navigator_add(nav, FILENAME4, 0);
+  imv_navigator_select_abs(nav, 3);
+
+  imv_navigator_remove(nav, FILENAME1);
+
+  assert_int_equal(imv_navigator_index(nav), 2);
+  assert_string_equal(imv_navigator_selection(nav), FILENAME4);
+  imv_navigator_free(nav);
+}
+
 int main(void)
 {
-  (void)test_navigator_add_remove; /* skipped for now */
   const struct CMUnitTest tests[] = {
-      /* cmocka_unit_test(test_navigator_add_remove), */
+      cmocka_unit_test(test_navigator_add_remove),
       cmocka_unit_test(test_navigator_file_changed),
+      cmocka_unit_test(test_navigator_remove_before_selection),
   };
 
   return cmocka_run_group_tests(tests, NULL, NULL);
