@@ -243,7 +243,23 @@ int imv_canvas_printf(struct imv_canvas *canvas, int x, int y, const char *fmt, 
   return extents.width;
 }
 
-void imv_canvas_draw(struct imv_canvas *canvas)
+static void set_color_inversion(bool inverted)
+{
+  if (!inverted) {
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    return;
+  }
+
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+  glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
+  glTexEnvi(GL_TEXTURE_ENV, GL_SRC0_RGB, GL_TEXTURE);
+  glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_ONE_MINUS_SRC_COLOR);
+  glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE);
+  glTexEnvi(GL_TEXTURE_ENV, GL_SRC0_ALPHA, GL_TEXTURE);
+  glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA, GL_SRC_ALPHA);
+}
+
+static void draw_canvas(struct imv_canvas *canvas, bool inverted)
 {
   GLint viewport[4];
   glGetIntegerv(GL_VIEWPORT, viewport);
@@ -263,17 +279,24 @@ void imv_canvas_draw(struct imv_canvas *canvas)
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  set_color_inversion(inverted);
   glBegin(GL_TRIANGLE_FAN);
   glTexCoord2i(0,             0);              glVertex2i(0.0, 0.0);
   glTexCoord2i(canvas->width, 0);              glVertex2i(1.0, 0.0);
   glTexCoord2i(canvas->width, canvas->height); glVertex2i(1.0, 1.0);
   glTexCoord2i(0,             canvas->height); glVertex2i(0.0, 1.0);
   glEnd();
+  set_color_inversion(false);
   glDisable(GL_BLEND);
 
   glBindTexture(GL_TEXTURE_RECTANGLE, 0);
   glDisable(GL_TEXTURE_RECTANGLE);
   glPopMatrix();
+}
+
+void imv_canvas_draw(struct imv_canvas *canvas)
+{
+  draw_canvas(canvas, false);
 }
 
 static GLint convert_upscaling_method(enum upscaling_method upscaling_method) {
@@ -356,7 +379,8 @@ static void draw_bitmap(struct imv_canvas *canvas,
                         const struct imv_bitmap *bitmap,
                         int bx, int by, double scale,
                         double rotation, bool mirrored,
-                        enum upscaling_method upscaling_method)
+                        enum upscaling_method upscaling_method,
+                        bool inverted)
 {
   GLint viewport[4];
   glGetIntegerv(GL_VIEWPORT, viewport);
@@ -386,6 +410,7 @@ static void draw_bitmap(struct imv_canvas *canvas,
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  set_color_inversion(inverted);
 
   const GLint max_tex_size = get_gl_max_texture_size();
   const int tex_count_w = ((bitmap->width + max_tex_size - 1) / max_tex_size);
@@ -412,6 +437,7 @@ static void draw_bitmap(struct imv_canvas *canvas,
     }
   }
 
+  set_color_inversion(false);
   glDisable(GL_BLEND);
 
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -422,12 +448,13 @@ static void draw_bitmap(struct imv_canvas *canvas,
 void imv_canvas_draw_image(struct imv_canvas *canvas, struct imv_image *image,
                            int x, int y, double scale,
                            double rotation, bool mirrored,
-                           enum upscaling_method upscaling_method)
+                           enum upscaling_method upscaling_method,
+                           bool inverted)
 {
   switch (imv_image_get_type(image)) {
     case IMV_IMAGE_BITMAP:
       draw_bitmap(canvas, imv_image_get_bitmap(image), x, y, scale, rotation,
-                  mirrored, upscaling_method);
+                  mirrored, upscaling_method, inverted);
       break;
 #ifdef IMV_BACKEND_LIBRSVG
     case IMV_IMAGE_SVG:
@@ -446,7 +473,7 @@ void imv_canvas_draw_image(struct imv_canvas *canvas, struct imv_image *image,
                       -imv_image_height(image) / 2.0);
       rsvg_handle_render_cairo(imv_image_get_svg(image), canvas->cairo);
       cairo_identity_matrix(canvas->cairo);
-      imv_canvas_draw(canvas);
+      draw_canvas(canvas, inverted);
       break;
 #endif
   }

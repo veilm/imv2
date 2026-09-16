@@ -128,6 +128,9 @@ struct imv {
   /* method for scaling up images: interpolate or nearest neighbour */
   enum upscaling_method upscaling_method;
 
+  /* invert the displayed image's colours */
+  bool inverted;
+
   /* dirty state flags */
   bool need_redraw;
   bool need_rescale;
@@ -237,6 +240,7 @@ static void command_open(struct list *args, const char *argstr, void *data);
 static void command_close(struct list *args, const char *argstr, void *data);
 static void command_fullscreen(struct list *args, const char *argstr, void *data);
 static void command_overlay(struct list *args, const char *argstr, void *data);
+static void command_invert(struct list *args, const char *argstr, void *data);
 static void command_exec(struct list *args, const char *argstr, void *data);
 static void command_center(struct list *args, const char *argstr, void *data);
 static void command_reset(struct list *args, const char *argstr, void *data);
@@ -687,6 +691,7 @@ struct imv *imv_create(void)
   imv_command_register(imv->commands, "close", &command_close);
   imv_command_register(imv->commands, "fullscreen", &command_fullscreen);
   imv_command_register(imv->commands, "overlay", &command_overlay);
+  imv_command_register(imv->commands, "invert", &command_invert);
   imv_command_register(imv->commands, "exec", &command_exec);
   imv_command_register(imv->commands, "center", &command_center);
   imv_command_register(imv->commands, "reset", &command_reset);
@@ -1548,7 +1553,7 @@ static void render_window(struct imv *imv)
     }
     imv_canvas_draw_image(imv->canvas, imv->current_image,
                           x, y, scale, rotation, mirrored,
-                          imv->upscaling_method);
+                          imv->upscaling_method, imv->inverted);
     imv_canvas_clear(imv->canvas);
   } else if (imv->mode == IMV_MODE_THUMB) {
     imv_canvas_clear(imv->canvas);
@@ -2078,6 +2083,15 @@ static void command_overlay(struct list *args, const char *argstr, void *data)
   (void)argstr;
   struct imv *imv = data;
   imv->overlay.enabled = !imv->overlay.enabled;
+  imv->need_redraw = true;
+}
+
+static void command_invert(struct list *args, const char *argstr, void *data)
+{
+  (void)args;
+  (void)argstr;
+  struct imv *imv = data;
+  imv->inverted = !imv->inverted;
   imv->need_redraw = true;
 }
 

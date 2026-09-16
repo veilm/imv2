@@ -143,6 +143,9 @@ Commands can be entered by pressing *:*. imv supports the following commands:
 *overlay*::
 	Toggle the overlay.
 
+*invert*::
+	Toggle inversion of the displayed image's colours.
+
 *exec* <command>::
 	Execute a shell command. imv provides various environment variables to the
 	command executed. These are documented in the 'Environment Variables'

@@ -590,7 +590,7 @@ void imv_thumbs_render(struct imv_thumbs *thumbs, struct imv_canvas *canvas,
           (int)(draw_x * thumbs->scale + 0.5),
           (int)(draw_y * thumbs->scale + 0.5),
           thumbs->scale, 0.0, false,
-          upscaling_method);
+          upscaling_method, false);
     }
 
     if (i == selected && item->image) {
