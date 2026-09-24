@@ -629,6 +629,9 @@ static void log_to_stderr(enum imv_log_level level, const char *text, void *data
 struct imv *imv_create(void)
 {
   struct imv *imv = calloc(1, sizeof *imv);
+  if (!imv) {
+    return NULL;
+  }
 
   /* Attach log to stderr */
   imv->log_level = IMV_INFO;
@@ -653,6 +656,10 @@ struct imv *imv_create(void)
   imv->navigator = imv_navigator_create();
   imv_navigator_set_looping(imv->navigator, imv->loop_input);
   imv->thumbs = imv_thumbs_create(imv->backends, thumb_ready_callback, imv);
+  if (!imv->thumbs) {
+    imv_log(IMV_ERROR, "Failed to create thumbnail loader.\n");
+    return NULL;
+  }
   imv->commands = imv_commands_create();
   imv->console = imv_console_create();
   imv_console_set_command_callback(imv->console, &command_callback, imv);

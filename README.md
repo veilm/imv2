@@ -1,7 +1,7 @@
 Summary of veilm fork changes:
 
 - Adds a thumbnail grid mode, toggled with `Enter` by default
-	- asynchronous thumbnail loading and caching
+	- asynchronous thumbnail loading with persistent caching in `$XDG_CACHE_HOME/imv2/thumbs` (or `~/.cache/imv2/thumbs`); entries refresh when the source file changes
 	- thumbnail navigation integrated with the normal image list and commands
 - `loop_input = false` now clamps at the first/last image in your input set, instead of wrapping
 	- e.g. running `:next 10` when you're at image 8/10 now brings you to 10/10. stock imv could not do this

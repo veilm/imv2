@@ -5,12 +5,14 @@
 #include "image.h"
 #include "navigator.h"
 #include "source.h"
+#include "thumb_cache.h"
 
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 enum thumb_state {
   THUMB_EMPTY,
@@ -36,6 +38,7 @@ struct imv_thumbs {
 
   struct thumb_item *items;
   size_t count;
+  size_t capacity;
 
   int window_width;
   int window_height;
@@ -119,6 +122,7 @@ static void clear_thumbs(struct imv_thumbs *thumbs)
   free(thumbs->items);
   thumbs->items = NULL;
   thumbs->count = 0;
+  thumbs->capacity = 0;
   thumbs->first = 0;
   thumbs->end = 0;
 }
@@ -148,6 +152,13 @@ static void update_metrics(struct imv_thumbs *thumbs)
 static struct imv_image *load_thumbnail(struct backends *backends,
     const char *path, int thumb_size)
 {
+  struct imv_image *cached = imv_thumb_cache_read(path, thumb_size);
+  if (cached) {
+    return cached;
+  }
+  struct stat source_stat;
+  const bool cacheable = stat(path, &source_stat) == 0 &&
+      S_ISREG(source_stat.st_mode);
   struct imv_source *src = NULL;
   enum backend_result result = backends_open_path(backends, path, &src);
 
@@ -166,6 +177,9 @@ static struct imv_image *load_thumbnail(struct backends *backends,
 
   struct imv_image *thumb = imv_image_thumbnail(image, thumb_size, thumb_size);
   imv_image_free(image);
+  if (thumb && cacheable) {
+    imv_thumb_cache_write(path, thumb_size, thumb, &source_stat);
+  }
   return thumb;
 }
 
@@ -204,6 +218,9 @@ struct imv_thumbs *imv_thumbs_create(struct backends *backends,
     imv_thumbs_ready_cb ready_cb, void *ready_cb_data)
 {
   struct imv_thumbs *thumbs = calloc(1, sizeof *thumbs);
+  if (!thumbs) {
+    return NULL;
+  }
   thumbs->backends = backends;
   thumbs->ready_cb = ready_cb;
   thumbs->ready_cb_data = ready_cb_data;
@@ -260,7 +277,58 @@ void imv_thumbs_resync(struct imv_thumbs *thumbs, struct imv_navigator *nav)
 {
   const size_t count = imv_navigator_length(nav);
   if (count == thumbs->count) {
+    bool changed = false;
+    for (size_t i = 0; i < count; ++i) {
+      if (thumbs->items[i].path &&
+          strcmp(thumbs->items[i].path, imv_navigator_at(nav, i)) != 0) {
+        changed = true;
+        break;
+      }
+    }
+    if (changed) {
+      ++thumbs->generation;
+      for (size_t i = 0; i < count; ++i) {
+        free_thumb_item(&thumbs->items[i]);
+      }
+      thumbs->dirty = true;
+    }
     return;
+  }
+
+  /* Directory and stdin additions append paths. Keep the existing slots in
+   * place, including empty ones, instead of doing a quadratic path search. */
+  if (count > thumbs->count) {
+    bool appended = true;
+    for (size_t i = 0; i < thumbs->count; ++i) {
+      if (thumbs->items[i].path &&
+          strcmp(thumbs->items[i].path, imv_navigator_at(nav, i)) != 0) {
+        appended = false;
+        break;
+      }
+    }
+    if (appended) {
+      if (count > thumbs->capacity) {
+        size_t capacity = thumbs->capacity ? thumbs->capacity : 16;
+        while (capacity < count && capacity <= SIZE_MAX / 2) {
+          capacity *= 2;
+        }
+        if (capacity < count || capacity > SIZE_MAX / sizeof *thumbs->items) {
+          return;
+        }
+        struct thumb_item *items = realloc(thumbs->items,
+            capacity * sizeof *thumbs->items);
+        if (!items) {
+          return;
+        }
+        thumbs->items = items;
+        thumbs->capacity = capacity;
+      }
+      memset(thumbs->items + thumbs->count, 0,
+          (count - thumbs->count) * sizeof *thumbs->items);
+      thumbs->count = count;
+      thumbs->dirty = true;
+      return;
+    }
   }
 
   struct thumb_item *old_items = thumbs->items;
@@ -268,6 +336,9 @@ void imv_thumbs_resync(struct imv_thumbs *thumbs, struct imv_navigator *nav)
   struct thumb_item *new_items = NULL;
   if (count > 0) {
     new_items = calloc(count, sizeof *new_items);
+    if (!new_items) {
+      return;
+    }
   }
 
   for (size_t i = 0; i < count; ++i) {
@@ -292,6 +363,7 @@ void imv_thumbs_resync(struct imv_thumbs *thumbs, struct imv_navigator *nav)
   free(old_items);
   thumbs->items = new_items;
   thumbs->count = count;
+  thumbs->capacity = count;
   ++thumbs->generation;
   thumbs->first = 0;
   thumbs->end = 0;
@@ -516,7 +588,11 @@ void imv_thumbs_schedule(struct imv_thumbs *thumbs, struct imv_navigator *nav)
       continue;
     }
 
-    char *path = strdup(imv_navigator_at(nav, i));
+    const char *nav_path = imv_navigator_at(nav, i);
+    if (!nav_path) {
+      return;
+    }
+    char *path = strdup(nav_path);
     if (!path) {
       return;
     }

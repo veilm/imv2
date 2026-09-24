@@ -30,6 +30,10 @@ enum image_type imv_image_get_type(struct imv_image *image) {
 struct imv_image *imv_image_create_from_bitmap(struct imv_bitmap bmp)
 {
   struct imv_image *image = calloc(1, sizeof *image);
+  if (!image) {
+    imv_bitmap_free(bmp);
+    return NULL;
+  }
   image->type = IMV_IMAGE_BITMAP;
   image->val.bitmap = bmp;
   return image;

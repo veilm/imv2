@@ -97,14 +97,25 @@ int imv_navigator_add(struct imv_navigator *nav, const char *path,
         if (strcmp(dir->d_name, "..") == 0 || strcmp(dir->d_name, ".") == 0) {
           continue;
         }
-        snprintf(path_buf, sizeof path_buf, "%s/%s", path, dir->d_name);
+        if (snprintf(path_buf, sizeof path_buf, "%s/%s", path,
+            dir->d_name) >= (int)sizeof path_buf) {
+          result = 1;
+          continue;
+        }
         struct stat new_path_info;
-        if (stat(path_buf, &new_path_info)) {
+        if (lstat(path_buf, &new_path_info)) {
           switch (errno) {
           case ELOOP:
           case ENOTDIR:
-          case ENOENT: continue;
+          case ENOENT: break;
           default: result = 1; break;
+          }
+          continue;
+        }
+        if (S_ISLNK(new_path_info.st_mode)) {
+          if (stat(path_buf, &new_path_info) != 0 ||
+              S_ISDIR(new_path_info.st_mode)) {
+            continue;
           }
         }
         int is_dir = S_ISDIR(new_path_info.st_mode);
@@ -119,6 +130,8 @@ int imv_navigator_add(struct imv_navigator *nav, const char *path,
             break;
           }
         }
+      }
+      for (int i = 0; i < total_dirs; ++i) {
         free(dir_list[i]);
       }
       free(dir_list);

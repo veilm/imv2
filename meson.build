@@ -85,6 +85,7 @@ files_common = files(
   'src/navigator.c',
   'src/source.c',
   'src/thumbs.c',
+  'src/thumb_cache.c',
   'src/viewport.c',
 )
 
@@ -301,6 +302,11 @@ if dep_cmocka.found() and xxd.found()
     )
   endforeach
 endif
+
+test('thumb_cache', executable('test_thumb_cache',
+    files('test/thumb_cache.c'), link_with: libimv,
+    include_directories: include_directories('src'),
+    dependencies: deps_for_imv))
 
 prog_a2x = find_program('a2x', required: get_option('man'))
 

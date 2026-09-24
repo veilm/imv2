@@ -54,12 +54,18 @@ static void load_image(void *raw_private, struct imv_image **image, int *frameti
   }
 
   size_t row_len = png_get_rowbytes(private->png, private->info);
-  assert(bmp.height * row_len == imv_bitmap_size(bmp));
+  if (row_len != (size_t)bmp.width * BYTES_PER_CHANNEL) {
+    free(rows);
+    imv_bitmap_free(bmp);
+    return;
+  }
   for (int y = 0; y < bmp.height; ++y) {
     rows[y] = bmp.data + row_len * y;
   }
 
   if (setjmp(png_jmpbuf(private->png))) {
+    free(rows);
+    imv_bitmap_free(bmp);
     return;
   }
   png_read_image(private->png, rows);
@@ -79,8 +85,8 @@ static const struct imv_source_vtable vtable = {
 static enum backend_result open_file(FILE *f, struct imv_source **src)
 {
   unsigned char header[8];
-  fread(header, 1, sizeof header, f);
-  if (png_sig_cmp(header, 0, sizeof header)) {
+  if (fread(header, 1, sizeof header, f) != sizeof header ||
+      png_sig_cmp(header, 0, sizeof header)) {
     fclose(f);
     return BACKEND_UNSUPPORTED;
   }

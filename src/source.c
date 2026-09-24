@@ -87,8 +87,12 @@ static void *free_thread(void *src)
 void imv_source_async_free(struct imv_source *src)
 {
   pthread_t thread;
-  pthread_create(&thread, NULL, free_thread, src);
-  pthread_detach(thread);
+  if (pthread_create(&thread, NULL, free_thread, src) == 0) {
+    pthread_detach(thread);
+  } else {
+    /* The owner reference still needs to be released if no worker started. */
+    source_free_owner(src);
+  }
 }
 
 static void *first_frame_thread(void *src_raw)
