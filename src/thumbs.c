@@ -667,9 +667,17 @@ void imv_thumbs_render(struct imv_thumbs *thumbs, struct imv_canvas *canvas,
           (int)(draw_y * thumbs->scale + 0.5),
           thumbs->scale, 0.0, false,
           upscaling_method, false);
+    } else {
+      const int dot_size = 4;
+      imv_canvas_color(canvas, 0.55f, 0.55f, 0.55f, 1.0f);
+      imv_canvas_fill_rectangle(canvas,
+          (int)((x + (thumbs->thumb_size - dot_size) / 2.0) * thumbs->scale + 0.5),
+          (int)((y + (thumbs->thumb_size - dot_size) / 2.0) * thumbs->scale + 0.5),
+          (int)(dot_size * thumbs->scale + 0.5),
+          (int)(dot_size * thumbs->scale + 0.5));
     }
 
-    if (i == selected && item->image) {
+    if (i == selected) {
       imv_canvas_color(canvas, 0.90f, 0.90f, 0.90f, 1.0f);
       imv_canvas_stroke_rectangle(canvas,
           (int)((item->x - thumbs->border_width) * thumbs->scale + 0.5),
