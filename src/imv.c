@@ -69,6 +69,7 @@ struct color_rgb {
 
 struct internal_event {
   enum internal_event_type type;
+  struct imv_source *source;
   union {
     struct {
       struct imv_image *image;
@@ -395,6 +396,7 @@ static void source_callback(struct imv_source_message *msg)
   }
 
   struct internal_event *event = calloc(1, sizeof *event);
+  event->source = msg->source;
   if (msg->image) {
     event->type = NEW_IMAGE;
     event->data.new_image.image = msg->image;
@@ -1462,6 +1464,16 @@ static void handle_new_frame(struct imv *imv, struct imv_image *image, int frame
 
 static void consume_internal_event(struct imv *imv, struct internal_event *event)
 {
+  /* A queued result can outlive its source even if it was current when the
+   * worker submitted it. Never apply it to a later selection. */
+  if ((event->type == NEW_IMAGE || event->type == BAD_IMAGE) &&
+      event->source != imv->current_source) {
+    if (event->type == NEW_IMAGE) {
+      imv_image_free(event->data.new_image.image);
+    }
+    free(event);
+    return;
+  }
   if (event->type == NEW_IMAGE) {
     /* New image vs just a new frame of the same image */
     if (event->data.new_image.is_new_image) {

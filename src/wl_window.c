@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <poll.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <time.h>
@@ -54,6 +55,8 @@ struct imv_window {
   int repeat_scancode; /* scancode of key to repeat */
   int repeat_delay; /* time before repeat in ms */
   int repeat_interval; /* time between repeats in ms */
+  bool repeat_active;
+  atomic_bool repeat_pending;
 
   int width;
   int height;
@@ -189,7 +192,9 @@ static void keyboard_enter(void *data, struct wl_keyboard *keyboard,
 static void keyboard_leave(void *data, struct wl_keyboard *keyboard,
     uint32_t serial, struct wl_surface *surface)
 {
-  (void)data;
+  struct imv_window *window = data;
+  window->repeat_active = false;
+  timer_settime(window->timer_id, 0, &(struct itimerspec){0}, NULL);
   (void)keyboard;
   (void)serial;
   (void)surface;
@@ -242,6 +247,10 @@ static void keyboard_key(void *data, struct wl_keyboard *keyboard,
   imv_keyboard_update_key(window->keyboard, key, state);
 
   if (!state) {
+    if (!window->repeat_active || window->repeat_scancode != (int)key) {
+      return;
+    }
+    window->repeat_active = false;
     /* If a key repeat timer is running, stop it */
     struct itimerspec off = {
       .it_value = {
@@ -261,9 +270,11 @@ static void keyboard_key(void *data, struct wl_keyboard *keyboard,
 
   wl_display_roundtrip(window->wl_display);
 
-  if (imv_keyboard_should_key_repeat(window->keyboard, key)) {
+  if (window->repeat_interval > 0 &&
+      imv_keyboard_should_key_repeat(window->keyboard, key)) {
     /* Kick off the key-repeat timer for the current key */
     window->repeat_scancode = key;
+    window->repeat_active = true;
     struct itimerspec period = {
       .it_value = {
         .tv_sec = 0,
@@ -993,7 +1004,10 @@ static void shutdown_wayland(struct imv_window *window)
 static void on_timer(union sigval sigval)
 {
   struct imv_window *window = sigval.sival_ptr;
-  push_keypress(window, window->repeat_scancode);
+  if (!atomic_exchange(&window->repeat_pending, true)) {
+    struct imv_event event = {.type = IMV_EVENT_KEYBOARD_REPEAT};
+    imv_window_push_event(window, &event);
+  }
 }
 
 extern PFNGLGENERATEMIPMAPPROC imv_glGenerateMipmap;
@@ -1015,6 +1029,7 @@ struct imv_window *imv_window_create(int width, int height, const char *title,
 
   window->keyboard = imv_keyboard_create();
   assert(window->keyboard);
+  atomic_init(&window->repeat_pending, false);
   window->wl_outputs = list_create();
   if (!connect_to_wayland(window)) {
     return NULL;
@@ -1167,6 +1182,13 @@ void imv_window_pump_events(struct imv_window *window, imv_event_handler handler
       break;
     }
     assert(len == sizeof e);
+    if (e.type == IMV_EVENT_KEYBOARD_REPEAT) {
+      atomic_store(&window->repeat_pending, false);
+      if (window->repeat_active) {
+        push_keypress(window, window->repeat_scancode);
+      }
+      continue;
+    }
     if (handler) {
       handler(data, &e);
     }
